@@ -1,0 +1,3228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>《三国：都市战纪》合体奥义典藏版 - Q键武将援护 / Y键双人合体大招 / 投币选人 / 三关三Boss</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+  body {
+    background: #04060d;
+    color: #e2e8f0;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  #game-wrapper {
+    position: relative;
+    width: 960px;
+    height: 540px;
+    border: 3px solid #38bdf8;
+    border-radius: 8px;
+    box-shadow: 0 0 45px rgba(56, 189, 248, 0.4), inset 0 0 20px rgba(0,0,0,0.85);
+    background: #0f172a;
+    overflow: hidden;
+  }
+  canvas { display: block; }
+
+  /* 顶部实时成就勋章解锁 Toast */
+  #achievement-toast {
+    position: absolute;
+    top: -85px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, #0f172a, #1e1b4b, #0f172a);
+    border: 2px solid #fbbf24;
+    border-radius: 8px;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 25px rgba(251, 191, 36, 0.45);
+    z-index: 45;
+    transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: none;
+  }
+  #achievement-toast.show { top: 16px; }
+  .toast-icon { font-size: 28px; }
+  .toast-title { font-size: 15px; font-weight: 900; color: #fbbf24; }
+  .toast-desc { font-size: 12px; color: #e2e8f0; }
+
+  /* 赛博军工芯片改装商店 + 生涯档案 DOM 覆盖层 */
+  #cyber-shop-modal {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(6, 10, 25, 0.95);
+    backdrop-filter: blur(8px);
+    z-index: 30;
+    padding: 14px 22px;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .shop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #38bdf8;
+    padding-bottom: 8px;
+  }
+  .shop-title {
+    font-size: 20px;
+    font-weight: 900;
+    color: #38bdf8;
+    text-shadow: 0 0 12px rgba(56,189,248,0.6);
+  }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .save-badge {
+    font-size: 12px;
+    color: #4ade80;
+    background: rgba(22, 163, 74, 0.2);
+    border: 1px solid #22c55e;
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+  .chip-wallet {
+    background: #1e293b;
+    border: 2px solid #fbbf24;
+    padding: 4px 14px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #fbbf24;
+  }
+  .career-records-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 8px;
+    background: #090d18;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 12px;
+  }
+  .record-item { font-size: 12px; color: #94a3b8; }
+  .record-val { font-size: 14px; font-weight: bold; color: #f8fafc; margin-left: 6px; }
+
+  .shop-body {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    gap: 14px;
+    margin: 8px 0;
+    flex: 1;
+    min-height: 0;
+  }
+  .chip-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .chip-card {
+    background: linear-gradient(145deg, #0f172a, #1e293b);
+    border: 2px solid #334155;
+    border-radius: 7px;
+    padding: 9px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .chip-card.installed {
+    border-color: #22c55e;
+    background: linear-gradient(145deg, #06281e, #0f172a);
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.25);
+  }
+  .chip-name { font-size: 13px; font-weight: bold; color: #f8fafc; margin-bottom: 2px; }
+  .chip-slot { font-size: 10px; color: #38bdf8; margin-bottom: 4px; font-family: monospace; }
+  .chip-desc { font-size: 11px; color: #94a3b8; line-height: 1.35; flex: 1; }
+  .chip-btn {
+    margin-top: 6px;
+    padding: 5px 8px;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 12px;
+    background: #0284c7;
+    color: #fff;
+  }
+  .chip-btn:hover { background: #38bdf8; color: #0f172a; }
+  .chip-btn.installed-btn { background: #16a34a; cursor: default; color: #fff; }
+
+  .right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: space-between;
+  }
+  .frame-diag-panel {
+    background: #090d18;
+    border: 1px solid #334155;
+    border-radius: 7px;
+    padding: 8px 10px;
+  }
+  .diag-title { font-size: 13px; font-weight: bold; color: #fbbf24; margin-bottom: 4px; }
+  .diag-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .diag-table th, .diag-table td {
+    padding: 3px 4px;
+    text-align: left;
+    border-bottom: 1px solid #1e293b;
+  }
+  .diag-table th { color: #64748b; }
+  .stat-up { color: #4ade80; font-weight: bold; }
+
+  .medal-panel {
+    background: #090d18;
+    border: 1px solid #334155;
+    border-radius: 7px;
+    padding: 8px 10px;
+    flex: 1;
+  }
+  .medal-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .medal-badge {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 5px;
+    padding: 5px 6px;
+    opacity: 0.45;
+    filter: grayscale(100%);
+  }
+  .medal-badge.unlocked {
+    opacity: 1;
+    filter: grayscale(0%);
+    border-color: #fbbf24;
+    background: linear-gradient(135deg, #1e1b4b, #0f172a);
+  }
+  .medal-name { font-size: 11px; font-weight: bold; color: #fbbf24; }
+  .medal-desc { font-size: 10px; color: #cbd5e1; line-height: 1.2; margin-top: 2px; }
+
+  .shop-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #334155;
+    padding-top: 8px;
+  }
+  .ng-plus-btn {
+    background: linear-gradient(90deg, #dc2626, #ea580c);
+    color: #fff;
+    border: 2px solid #fca5a5;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 900;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.5);
+  }
+  .normal-retry-btn {
+    background: #334155;
+    color: #cbd5e1;
+    border: 1px solid #64748b;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .wipe-save-btn {
+    background: transparent;
+    color: #ef4444;
+    border: 1px solid #7f1d1d;
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+
+  #controls-bar {
+    width: 960px;
+    background: linear-gradient(90deg, #0f172a, #1e293b, #0f172a);
+    border: 1px solid #334155;
+    border-radius: 6px;
+    margin-top: 8px;
+    padding: 7px 12px;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #94a3b8;
+  }
+  .key {
+    display: inline-block;
+    background: #334155;
+    color: #f8fafc;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border-bottom: 2px solid #0f172a;
+    font-family: monospace;
+    font-weight: bold;
+    margin: 0 1px;
+  }
+  .highlight { color: #38bdf8; font-weight: bold; }
+  .fire-text { color: #f97316; font-weight: bold; }
+  .gold-text { color: #fbbf24; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div id="game-wrapper">
+  <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+  <!-- 顶部实时成就勋章解锁横幅 -->
+  <div id="achievement-toast">
+    <div class="toast-icon" id="toast-icon">🏆</div>
+    <div>
+      <div class="toast-title" id="toast-title">解锁街机成就勋章！</div>
+      <div class="toast-desc" id="toast-desc">获得额外将星改装芯片奖励</div>
+    </div>
+  </div>
+
+  <!-- 赛博军工芯片改装工坊 & LocalStorage 生涯成就档案 UI -->
+  <div id="cyber-shop-modal">
+    <div>
+      <div class="shop-header">
+        <div>
+          <div class="shop-title">🔧 赛博军工整备室 · 芯片改装与荣誉勋章档案</div>
+          <div id="clear-summary-text" style="font-size:12px; color:#94a3b8; margin-top:2px;">LocalStorage 自动存档已就绪</div>
+        </div>
+        <div class="header-right">
+          <div class="save-badge" id="save-status-indicator">💾 LocalStorage 已同步</div>
+          <div class="chip-wallet">🪙 将星芯片: <span id="wallet-amount">0</span> PT</div>
+        </div>
+      </div>
+
+      <div class="career-records-bar">
+        <div class="record-item">🔥 历史最高连段:<span class="record-val" id="rec-best-combo">0 Hits</span></div>
+        <div class="record-item">👑 历史最高评级:<span class="record-val" id="rec-best-rank" style="color:#fbbf24;">-</span></div>
+        <div class="record-item">⏱️ 三关最快通关:<span class="record-val" id="rec-fastest-time" style="color:#38bdf8;">--:--.--</span></div>
+        <div class="record-item">🗡️ 密室青釭剑解锁:<span class="record-val" id="rec-secret-sword" style="color:#4ade80;">未获取</span></div>
+      </div>
+    </div>
+
+    <div class="shop-body">
+      <div class="chip-grid" id="chip-cards-container"></div>
+      <div class="right-column">
+        <div class="frame-diag-panel">
+          <div class="diag-title">📊 特勤小队制式武装 (60FPS 实时帧数据热更新面板)</div>
+          <table class="diag-table">
+            <thead>
+              <tr><th>招式名称</th><th>前摇</th><th>取消帧</th><th>削韧</th><th>无敌帧</th><th>属性</th></tr>
+            </thead>
+            <tbody id="frame-diag-tbody"></tbody>
+          </table>
+        </div>
+        <div class="medal-panel">
+          <div class="diag-title">🏅 街机战役六大荣誉勋章墙 (首次达成自动发放芯片奖励)</div>
+          <div class="medal-grid" id="medal-grid-container"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="shop-footer">
+      <div style="display:flex; gap:8px;">
+        <button class="normal-retry-btn" onclick="returnToCharSelect(false)">🕹️ 返回街机选人画面 (切换赵云/关羽/张飞/诸葛亮)</button>
+        <button class="wipe-save-btn" onclick="wipeSaveData()">🗑️ 清空重置本地存档</button>
+      </div>
+      <button class="ng-plus-btn" onclick="returnToCharSelect(true)">🔥 开启二周目修罗战役 (选人迎战 2x攻速全Boss) ➔</button>
+    </div>
+  </div>
+</div>
+
+<div id="controls-bar">
+  <div>
+    <span class="highlight">投币:</span> <span class="key">5</span>/<span class="key">C</span>
+    <span class="highlight">移动:</span> <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span>
+    <span class="highlight">普攻:</span> <span class="key">J</span>
+    <span class="highlight">跳/滑铲:</span> <span class="key">K</span>/<span class="key">S+K</span>
+    <span class="highlight">弹反:</span> <span class="key">L</span>
+    <span class="highlight">爆气:</span> <span class="key">Space</span>
+  </div>
+  <div>
+    <span class="gold-text">呼叫武将援护:</span> <span class="key">Q</span> |
+    <span class="fire-text">双人合体奥义(2格气):</span> <span class="key">Y</span>(或<span class="key">U+H</span>) |
+    <span class="highlight">必杀:</span> <span class="key">U</span>/<span class="key">I</span>/<span class="key">H</span> |
+    <span class="highlight">法宝:</span> <span class="key">O</span>/<span class="key">P</span> |
+    <span class="highlight">商店/跳关:</span> <span class="key">Tab</span>/<span class="key">F8</span>/<span class="key">F9</span>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// 1. 原生 Web Audio API 程序化街机合成器引擎 (新增武将援护登场音与双人合体奥义双龙交鸣音)
+// ============================================================================
+class ArcadeAudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.masterGain = null;
+    this.noiseBuffer = null;
+    this.isMuted = false;
+    this.bgmInterval = null;
+    this.step = 0;
+    this.bpm = 132;
+  }
+
+  init() {
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      return;
+    }
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new AudioCtx();
+
+    const compressor = this.ctx.createDynamicsCompressor();
+    compressor.threshold.setValueAtTime(-14, this.ctx.currentTime);
+    compressor.ratio.setValueAtTime(8, this.ctx.currentTime);
+
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0.72;
+    this.masterGain.connect(compressor);
+    compressor.connect(this.ctx.destination);
+
+    const bufferSize = this.ctx.sampleRate * 2;
+    this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = this.noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    this.setBgmTempo(128);
+  }
+
+  setBgmTempo(newBpm) {
+    this.bpm = newBpm;
+    if (!this.ctx) return;
+    if (this.bgmInterval) clearInterval(this.bgmInterval);
+
+    const stepMs = (60 / this.bpm / 4) * 1000;
+    const lead = [293.66, 0, 349.23, 392.00, 440.00, 0, 523.25, 440.00, 587.33, 0, 523.25, 392.00, 440.00, 349.23, 293.66, 0];
+    const bass = [73.42, 73.42, 146.83, 73.42, 73.42, 73.42, 87.31, 98.00, 73.42, 73.42, 146.83, 73.42, 110.00, 98.00, 87.31, 73.42];
+
+    this.bgmInterval = setInterval(() => {
+      if (!this.ctx || this.isMuted || this.ctx.state !== 'running' || shopState.isOpen) return;
+      const s = this.step % 16;
+
+      if (screenFlow.mode !== 'BATTLE') {
+        if (s % 4 === 0) this._playTone(110, 38, 0.11, 'sine', 0.25);
+        if (lead[s] > 0 && s % 2 === 0) this._playTone(lead[s] * 0.5, lead[s] * 0.5, 0.12, 'triangle', 0.08);
+        this.step++;
+        return;
+      }
+
+      const stagePitch = campaign.stage === 1 ? (boss.active ? 1.04 : 1.0) : (campaign.stage === 2 ? (boss.active ? 1.10 : 1.06) : 1.15);
+      if (s % 4 === 0 || s === 14) this._playTone(135, 34, 0.13, 'sine', 0.36);
+      if (s === 4 || s === 12) this._playTone(185, 75, 0.09, 'triangle', 0.20);
+      if (bass[s] > 0) this._playTone(bass[s] * stagePitch, bass[s] * 0.98 * stagePitch, 0.1, 'sawtooth', 0.13);
+      if (lead[s] > 0) this._playTone(lead[s] * 1.02 * stagePitch, lead[s] * stagePitch, 0.14, 'triangle', 0.11);
+      this.step++;
+    }, stepMs);
+  }
+
+  toggleMute() {
+    if (!this.ctx) this.init();
+    this.isMuted = !this.isMuted;
+    this.masterGain.gain.setTargetAtTime(this.isMuted ? 0 : 0.72, this.ctx.currentTime, 0.02);
+    return this.isMuted;
+  }
+
+  playCoinInsert() {
+    if (!this.ctx) this.init();
+    if (this.isMuted) return;
+    this._playTone(987.77, 987.77, 0.08, 'sine', 0.45);
+    setTimeout(() => this._playTone(1318.51, 1318.51, 0.28, 'sine', 0.5), 75);
+  }
+
+  playCursorMove() {
+    if (!this.ctx) this.init();
+    if (this.isMuted) return;
+    this._playTone(523.25, 659.25, 0.05, 'triangle', 0.3);
+  }
+
+  playHeroConfirm() {
+    if (!this.ctx) this.init();
+    if (this.isMuted) return;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      setTimeout(() => this._playTone(f, f * 1.02, 0.14, 'sawtooth', 0.35), i * 50);
+    });
+  }
+
+  playMetroDepart() {
+    if (!this.ctx) this.init();
+    if (this.isMuted) return;
+    [440, 554.37, 659.25].forEach((f, i) => {
+      setTimeout(() => this._playTone(f, f, 0.22, 'sine', 0.32), i * 110);
+    });
+  }
+
+  // Q键呼叫待命武将入场援护追击音效
+  playAssistSummon() {
+    if (!this.ctx) this.init();
+    if (this.isMuted) return;
+    this._playTone(392.0, 783.99, 0.16, 'sawtooth', 0.4);
+    setTimeout(() => this._playTone(587.33, 1174.66, 0.22, 'triangle', 0.42), 80);
+  }
+
+  // Y键双人合体奥义·双龙震天破全屏演出音效
+  playCoopResonanceBeam() {
+    if (!this.ctx) this.init();
+    if (this.isMuted) return;
+    // 1. 前摇共鸣和弦号角
+    [293.66, 440.0, 587.33, 880.0, 1174.66].forEach((f, i) => {
+      setTimeout(() => this._playTone(f, f * 1.04, 0.35, 'sawtooth', 0.36), i * 65);
+    });
+    // 2. 第 550ms 触发双龙激光粒子洪流轰鸣
+    setTimeout(() => {
+      this.playExplosion();
+      this.playLightningShock(true);
+    }, 550);
+  }
+
+  playHitImpact(isHeavy = false, isPunish = false) {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const dur = isHeavy ? 0.22 : 0.11;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = isHeavy ? 'triangle' : 'sine';
+    osc.frequency.setValueAtTime(isPunish ? 240 : (isHeavy ? 175 : 135), t);
+    osc.frequency.exponentialRampToValueAtTime(isHeavy ? 28 : 42, t + dur);
+    g.gain.setValueAtTime(isHeavy ? 0.9 : 0.55, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(t); osc.stop(t + dur);
+
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(isHeavy ? 850 : 1400, t);
+    const ng = this.ctx.createGain();
+    ng.gain.setValueAtTime(isHeavy ? 0.7 : 0.35, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + (isHeavy ? 0.16 : 0.07));
+    noise.connect(filter); filter.connect(ng); ng.connect(this.masterGain);
+    noise.start(t); noise.stop(t + 0.18);
+
+    if (isPunish) this._playTone(587.33, 880, 0.18, 'sawtooth', 0.32);
+  }
+
+  playLightningShock(isChain = false) {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const dur = isChain ? 0.40 : 0.18;
+    const carrier = this.ctx.createOscillator();
+    const mod = this.ctx.createOscillator();
+    const modG = this.ctx.createGain();
+    const outG = this.ctx.createGain();
+    carrier.type = 'sawtooth';
+    carrier.frequency.setValueAtTime(isChain ? 680 : 920, t);
+    carrier.frequency.exponentialRampToValueAtTime(180, t + dur);
+    mod.type = 'square';
+    mod.frequency.setValueAtTime(55, t);
+    modG.gain.setValueAtTime(650, t);
+    mod.connect(modG); modG.connect(carrier.frequency);
+    outG.gain.setValueAtTime(0.4, t);
+    outG.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    carrier.connect(outG); outG.connect(this.masterGain);
+    carrier.start(t); mod.start(t);
+    carrier.stop(t + dur); mod.stop(t + dur);
+  }
+
+  playJustGuardParry() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const base = 1046.5;
+    [1.0, 1.414, 1.732, 2.45].forEach((r, i) => {
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = i % 2 === 0 ? 'triangle' : 'square';
+      osc.frequency.setValueAtTime(base * r * 1.18, t);
+      osc.frequency.exponentialRampToValueAtTime(base * r, t + 0.015);
+      const dur = 0.45 - i * 0.07;
+      g.gain.setValueAtTime(0.32 / (i + 1), t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g); g.connect(this.masterGain);
+      osc.start(t); osc.stop(t + dur);
+    });
+  }
+
+  playExplosion() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    this._playTone(110, 22, 0.55, 'sawtooth', 0.85);
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer;
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(900, t);
+    lp.frequency.exponentialRampToValueAtTime(120, t + 0.6);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.85, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+    noise.connect(lp); lp.connect(g); g.connect(this.masterGain);
+    noise.start(t); noise.stop(t + 0.65);
+  }
+
+  playIceFreeze() {
+    if (!this.ctx || this.isMuted) return;
+    [1174.66, 1567.98, 2093.0, 2637.02].forEach((f, i) => {
+      setTimeout(() => this._playTone(f, f * 1.05, 0.16, 'sine', 0.28), i * 35);
+    });
+  }
+
+  playLaserSweep() {
+    if (!this.ctx || this.isMuted) return;
+    this._playTone(980, 140, 0.38, 'sawtooth', 0.5);
+  }
+
+  playMedalUnlock() {
+    if (!this.ctx || this.isMuted) return;
+    [587.33, 783.99, 987.77, 1174.66, 1567.98].forEach((f, i) => {
+      setTimeout(() => this._playTone(f, f * 1.01, 0.18, 'square', 0.25), i * 55);
+    });
+  }
+
+  playSuperCutIn() {
+    if (!this.ctx || this.isMuted) return;
+    this._playTone(220, 880, 0.35, 'sawtooth', 0.42);
+    this.playJustGuardParry();
+  }
+
+  _playTone(startF, endF, dur, type, vol) {
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(startF, t);
+    osc.frequency.exponentialRampToValueAtTime(endF, t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(t); osc.stop(t + dur);
+  }
+}
+
+const sfx = new ArcadeAudioEngine();
+
+// ============================================================================
+// 2. 四大现代特勤武将配置表 (含专属 Q 键援护技与 Y 键双人合体奥义设定)
+// ============================================================================
+const HERO_ROSTER = [
+  {
+    id: 'ZHAO_YUN',
+    name: '常山·赵云',
+    title: '高周波白银枪神',
+    weapon: '纳米伸缩·龙胆亮银枪',
+    elem: 'METAL',
+    elemLabel: '⚡ 金/雷属性 (克张角木盾)',
+    hp: 1000,
+    speed: 4.5,
+    dmgMult: 1.0,
+    shieldMult: 1.1,
+    rangeBonus: 0,
+    bodyColor: '#f8fafc',
+    vestColor: '#0284c7',
+    weaponColor: '#38bdf8',
+    assistSkillName: '银龙疾电穿刺(高频雷属性贯穿)',
+    moveNames: { s236: '大鹏展翅·高频突刺', s28: '白鹤亮翅·电磁升龙', super: '超必杀：倒转昆仑·雷神降世' },
+    traitDesc: '移速最快、连段丝滑；雷枪天克第一关【赛博张角】木盾并触发积水导电暴击！'
+  },
+  {
+    id: 'GUAN_YU',
+    name: '武圣·关羽',
+    title: '赤焰热能重装大佬',
+    weapon: '赤焰热能·青龙偃月刀',
+    elem: 'FIRE',
+    elemLabel: '🔥 火属性 (直接劈穿密室门/克吕布金甲)',
+    hp: 1150,
+    speed: 3.9,
+    dmgMult: 1.25,
+    shieldMult: 1.35,
+    rangeBonus: 20,
+    bodyColor: '#14532d',
+    vestColor: '#16a34a',
+    weaponColor: '#f97316',
+    assistSkillName: '青龙赤焰劈山斩(火属性直接熔穿密室门!)',
+    moveNames: { s236: '狂龙出海·烈焰裂地斩', s28: '飞龙在天·青龙升空劈', super: '超必杀：亢龙有悔·焚城大葬' },
+    traitDesc: '刀刀烈火！第一关可直接用刀气劈碎30秒防爆卷帘门拿【青釭剑】，天克吕布金甲！'
+  },
+  {
+    id: 'ZHANG_FEI',
+    name: '燕人·张飞',
+    title: '重装外骨骼狂战坦',
+    weapon: '液压震荡·丈八蛇矛',
+    elem: 'EARTH',
+    elemLabel: '🪨 土属性 (高血量/强击退进电网)',
+    hp: 1350,
+    speed: 4.0,
+    dmgMult: 1.20,
+    shieldMult: 1.30,
+    rangeBonus: 12,
+    bodyColor: '#1e293b',
+    vestColor: '#dc2626',
+    weaponColor: '#facc15',
+    assistSkillName: '当阳重低音断喝(大范围震地挑空破盾!)',
+    moveNames: { s236: '神龙摆尾·外骨骼狂冲', s28: '恶虎扑羊·液压震天挑', super: '超必杀：天崩地裂·当阳断喝' },
+    traitDesc: '1350超高血量与强力击退！第二关可轻易将敌人与夏侯惇轰入车尾高压电网处决！'
+  },
+  {
+    id: 'ZHUGE_LIANG',
+    name: '卧龙·诸葛亮',
+    title: '奇门遁甲黑客军师',
+    weapon: '悬浮纳米·羽扇无人机阵列',
+    elem: 'WATER',
+    elemLabel: '❄️ 水/冰雷属性 (法宝翻倍/克P3魔神吕布)',
+    hp: 950,
+    speed: 4.3,
+    dmgMult: 1.12,
+    shieldMult: 1.25,
+    rangeBonus: 36,
+    bodyColor: '#1e1b4b',
+    vestColor: '#7e22ce',
+    weaponColor: '#a855f7',
+    assistSkillName: '奇门极寒雷暴阵(强制冰封Boss 60帧!)',
+    moveNames: { s236: '霹雳火·高能等离子激光', s28: '八阵图·奇门电磁浮空', super: '超必杀：呼风唤雨·奇门歼星阵' },
+    traitDesc: '射程最远(+36px)，开局战术法宝充能次数翻倍，冰雷法术天克P3高热魔神吕布！'
+  }
+];
+
+// ============================================================================
+// 3. 待命蜀汉武将 Q 键实时援护系统 (Assist Striker) & Y 键双人合体奥义演出控制器
+// ============================================================================
+const assistSystem = {
+  partnerIdx: 1,           // 当前待命援护的武将索引（每次呼叫后自动轮换下一位蜀汉队友）
+  cooldown: 0,             // 援护冷却帧数 (360帧 = 6秒)
+  maxCooldown: 360,
+  activeStriker: null,     // { hero, x, y, z, vy, facing, timer, hasHit }
+
+  // 双人合体奥义 (Co-op Ultimate Resonance) 全屏演出状态 (90帧特写+全屏光束)
+  coopUlt: {
+    active: false,
+    frame: 0,
+    totalFrames: 90,
+    title: '',
+    subTitle: '',
+    partnerHero: null,
+    hasExecutedBurst: false
+  },
+
+  getNextPartnerHero() {
+    if (this.partnerIdx === screenFlow.selectedHeroIdx) {
+      this.partnerIdx = (this.partnerIdx + 1) % HERO_ROSTER.length;
+    }
+    return HERO_ROSTER[this.partnerIdx];
+  },
+
+  rotatePartner() {
+    this.partnerIdx = (this.partnerIdx + 1) % HERO_ROSTER.length;
+    if (this.partnerIdx === screenFlow.selectedHeroIdx) {
+      this.partnerIdx = (this.partnerIdx + 1) % HERO_ROSTER.length;
+    }
+  }
+};
+
+// 按 Q 键：呼叫待命蜀汉武将从天而降发动【援护追击（Assist Attack）】
+function triggerAssistAttack() {
+  if (assistSystem.coopUlt.active) return;
+  if (assistSystem.cooldown > 0) {
+    const sec = (assistSystem.cooldown / 60).toFixed(1);
+    spawnText(player.x, player.z - 80, `⏳ 援护冷却中 (${sec}s)!`, '#94a3b8', 15);
+    return;
+  }
+
+  const partner = assistSystem.getNextPartnerHero();
+  assistSystem.cooldown = assistSystem.maxCooldown;
+  sfx.playAssistSummon();
+
+  // 在玩家身前跳入战场
+  const targetX = Math.max(70, Math.min(890, player.x + player.facing * 95));
+  assistSystem.activeStriker = {
+    hero: partner,
+    x: targetX,
+    y: 130, // 从高空跃入
+    z: player.z,
+    vy: -9,
+    facing: player.facing,
+    timer: 52,
+    hasHit: false
+  };
+
+  spawnText(targetX, player.z - 115, `⚡ 援护降临: 【${partner.name} · ${partner.assistSkillName}】!`, partner.weaponColor, 17);
+  assistSystem.rotatePartner();
+}
+
+// 按 Y 键 (或 U+H 同按)：消耗 2 格将星怒气 (200 Rage) 发动【双人合体奥义】90帧全屏特写动画！
+function triggerCoopUltimate() {
+  if (assistSystem.coopUlt.active) return;
+  if (player.rage < 200) {
+    spawnText(player.x, player.z - 85, '⚠️ 双人合体奥义需 2 格将星怒气 (200 PT)!', '#fbbf24', 16);
+    return;
+  }
+
+  player.rage -= 200;
+  player.state = 'IDLE';
+  player.activeSkill = null;
+
+  const partner = assistSystem.getNextPartnerHero();
+  const h1 = player.hero.id;
+  const h2 = partner.id;
+
+  // 根据两名武将组合动态匹配《三国战纪》经典合体奥义名称
+  let ultTitle = '桃园双龙震天破 · 极意共鸣';
+  let ultSub = `${player.hero.name} × ${partner.name} —— 蜀汉将星超导合击！`;
+
+  if ((h1 === 'GUAN_YU' && h2 === 'ZHANG_FEI') || (h1 === 'ZHANG_FEI' && h2 === 'GUAN_YU')) {
+    ultTitle = '桃园结义 · 烈焰震天双龙破';
+  } else if ((h1 === 'ZHAO_YUN' && h2 === 'ZHUGE_LIANG') || (h1 === 'ZHUGE_LIANG' && h2 === 'ZHAO_YUN')) {
+    ultTitle = '子龙借风 · 奇门雷火八卦阵';
+  } else if (h1 === 'GUAN_YU' || h2 === 'GUAN_YU') {
+    ultTitle = '武圣威临 · 赤焰苍龙破城斩';
+  }
+
+  assistSystem.coopUlt = {
+    active: true,
+    frame: 0,
+    totalFrames: 90,
+    title: ultTitle,
+    subTitle: ultSub,
+    partnerHero: partner,
+    hasExecutedBurst: false
+  };
+
+  sfx.playCoopResonanceBeam();
+  assistSystem.rotatePartner();
+}
+
+function updateAssistAndCoopSystem() {
+  if (assistSystem.cooldown > 0) assistSystem.cooldown--;
+
+  // 1. 更新 Q 键待命援护武将入场动作与判定
+  const st = assistSystem.activeStriker;
+  if (st) {
+    st.timer--;
+    if (st.y > 0) {
+      st.y = Math.max(0, st.y + st.vy);
+      st.vy -= 0.85;
+    }
+
+    // 落地瞬间 (y === 0) 触发专属援护大范围攻击判定！
+    if (st.y === 0 && !st.hasHit) {
+      st.hasHit = true;
+      game.shake = 12;
+      sfx.playHitImpact(true, true);
+      spawnParticles(st.x, st.z - 30, st.hero.weaponColor, 32, 9);
+
+      // 触发环境互动（如关羽援护可直接烧穿第一关30秒防爆卷帘门或引爆煤气罐！）
+      damageEnvironmentProps(st.x, st.z, 180, st.hero.elem);
+      if (campaign.stage === 1 && !campaign.shutterDoor.breached && st.hero.elem === 'FIRE' && Math.abs(st.x - campaign.shutterDoor.x) <= 190) {
+        damageShutterDoorWithFire(campaign.shutterDoor.x, campaign.shutterDoor.z, 120, 200);
+      }
+
+      // 援护命中全场附近杂兵
+      for (let i = mobs.length - 1; i >= 0; i--) {
+        const m = mobs[i];
+        if (Math.abs(m.x - st.x) <= 190 && Math.abs(m.z - st.z) <= 55) {
+          m.hp = Math.max(0, m.hp - 185);
+          m.vy = 13.5;
+          m.state = 'HURT'; m.stateFrame = 0;
+          if (campaign.stage === 2 && st.hero.id === 'ZHANG_FEI') {
+            m.x = Math.max(50, m.x - 120); // 张飞援护强力震退进电网
+          }
+          styleSystem.recordHit('ASSIST_HIT', 185, true, false);
+          checkMobDeath(m);
+        }
+      }
+
+      // 援护命中守关 Boss
+      if (boss.active && boss.hp > 0 && Math.abs(boss.x - st.x) <= 210) {
+        damageBoss(195, 95, st.hero.elem, true, true, 15.5);
+        // 诸葛亮专属援护效果：直接冰封 Boss 60 帧！
+        if (st.hero.id === 'ZHUGE_LIANG') {
+          boss.state = 'FROZEN';
+          boss.stateFrame = 30; // 剩余60帧解冻
+          sfx.playIceFreeze();
+          spawnText(boss.x, boss.z - 115, '❄️ 诸葛亮奇门援护: 强制冰封Boss!', '#a855f7', 18);
+        }
+      }
+    }
+
+    if (st.timer <= 0) {
+      assistSystem.activeStriker = null;
+    }
+  }
+
+  // 2. 更新 Y 键【双人合体奥义】90 帧全屏特写与双龙激光洪流演出
+  const cu = assistSystem.coopUlt;
+  if (cu.active) {
+    cu.frame++;
+
+    // 第 42 帧：切入双龙交叉粒子洪流，结算全屏毁天灭地伤害！
+    if (cu.frame === 42 && !cu.hasExecutedBurst) {
+      cu.hasExecutedBurst = true;
+      game.shake = 26;
+
+      for (let i = 0; i < 8; i++) {
+        spawnLightning(80 + i * 115, 0, 80 + i * 115, 520, player.hero.weaponColor);
+        spawnLightning(120 + i * 115, 0, 120 + i * 115, 520, cu.partnerHero.weaponColor);
+      }
+
+      // 第一关若卷帘门未破，双人合体奥义直接瞬间轰开隐藏密室拿青釭剑！
+      if (campaign.stage === 1 && !campaign.shutterDoor.breached) {
+        damageShutterDoorWithFire(campaign.shutterDoor.x, campaign.shutterDoor.z, 300, 999);
+      }
+      damageEnvironmentProps(480, 400, 500, 'METAL');
+
+      // 全屏杂兵清空
+      for (let i = mobs.length - 1; i >= 0; i--) {
+        const m = mobs[i];
+        spawnParticles(m.x, m.z - 40, '#fbbf24', 20, 9);
+        m.hp = 0;
+        checkMobDeath(m);
+      }
+      homingMissiles.length = 0;
+
+      // 对守关 Boss 造成 650 点双属性合体暴击 + 260 点破盾削韧！
+      if (boss.active && boss.hp > 0) {
+        styleSystem.recordBigBonus(850, `🐉 双人合体奥义·${cu.title}`, boss.x, boss.z);
+        tryUnlockMedal('MEDAL_COOP_ULT');
+        damageBoss(650, 260, 'FIRE', true, true, 16.5);
+      }
+    }
+
+    if (cu.frame >= cu.totalFrames) {
+      cu.active = false;
+    }
+  }
+}
+
+// ============================================================================
+// 4. 街机画面流转控制器：CHAR_SELECT -> METRO_MAP -> BATTLE
+// ============================================================================
+const screenFlow = {
+  mode: 'CHAR_SELECT',
+  credits: 2,
+  selectedHeroIdx: 0,
+  selectCountdownFrames: 20 * 60,
+  mapFromStage: 0,
+  mapToStage: 1,
+  mapProgress: 0,
+  mapReadyToStart: false
+};
+
+const METRO_STATIONS = [
+  { stage: 0, name: '桃园赛博基地 (HQ)',     x: 120, y: 310, boss: '特勤小队集结出发', desc: '整备高周波武器，按[Q]可呼叫队友援护，按[Y]释放双人合体奥义' },
+  { stage: 1, name: 'S1 · 洛阳霓虹夜市站',   x: 360, y: 310, boss: '守关Boss：赛博张角 [木盾弱雷]', desc: '支线挑战：30秒内按[Q]呼叫关羽火刀或引爆煤气罐破门夺取【青釭剑】' },
+  { stage: 2, name: 'S2 · 磁悬浮快线车顶',   x: 615, y: 205, boss: '守关Boss：重装机车·夏侯惇', desc: '地形杀招：趁车顶激光预警时按[I]键挑空夏侯惇直接削其50%血量' },
+  { stage: 3, name: 'S3 · 曹氏大厦108F天台', x: 840, y: 155, boss: '最终Boss：重装机甲吕布 [三阶段]', desc: '决战天台：利用左翼液氮塔冰封赤兔冲锋，用EMP手雷截击天基画戟' }
+];
+
+// ============================================================================
+// 5. 60FPS 招式帧数据与赛博芯片改装配置
+// ============================================================================
+const BASE_SKILLS = {
+  ZY_5A1:  { id: 'ZY_5A1',  name: '疾刺(一段)',         startup: 5,  active: 3,  recovery: 9,  cancel: 6,  dmg: 40,  shield: 12,  hitstop: 4,  range: 95,  launch: 0,    moveX: 3,  invuln: 0,  elem: 'NONE' },
+  ZY_5A2:  { id: 'ZY_5A2',  name: '电弧横扫(二段)',     startup: 6,  active: 4,  recovery: 11, cancel: 8,  dmg: 50,  shield: 16,  hitstop: 5,  range: 105, launch: 0,    moveX: 4,  invuln: 0,  elem: 'METAL' },
+  ZY_5A3:  { id: 'ZY_5A3',  name: '双龙挑(三段)',       startup: 8,  active: 5,  recovery: 14, cancel: 11, dmg: 65,  shield: 22,  hitstop: 5,  range: 110, launch: 6,    moveX: 5,  invuln: 0,  elem: 'METAL' },
+  ZY_5A4:  { id: 'ZY_5A4',  name: '龙尾击(四段挑飞)',   startup: 11, active: 6,  recovery: 20, cancel: 15, dmg: 90,  shield: 35,  hitstop: 8,  range: 125, launch: 13.5, moveX: 8,  invuln: 0,  elem: 'METAL' },
+  ZY_SLIDE:{ id: 'ZY_SLIDE',name: '战术贴地滑铲(S+K)',  startup: 4,  active: 12, recovery: 10, cancel: 14, dmg: 55,  shield: 15,  hitstop: 5,  range: 100, launch: 7,    moveX: 11, invuln: 14, elem: 'NONE', isLowSlide: true },
+  ZY_236A: { id: 'ZY_236A', name: '大鹏展翅·高频突刺',  startup: 7,  active: 12, recovery: 16, cancel: 15, dmg: 130, shield: 50,  hitstop: 7,  range: 145, launch: 6,    moveX: 11, invuln: 4,  elem: 'METAL' },
+  ZY_28A:  { id: 'ZY_28A',  name: '白鹤亮翅·电磁升龙',  startup: 5,  active: 11, recovery: 22, cancel: 14, dmg: 150, shield: 72,  hitstop: 9,  range: 115, launch: 16.0, moveX: 4,  invuln: 10, elem: 'METAL', jumpVy: 11 },
+  ZY_SUPER:{ id: 'ZY_SUPER',name: '超必杀：倒转昆仑',   startup: 4,  active: 26, recovery: 22, cancel: 48, dmg: 340, shield: 160, hitstop: 13, range: 220, launch: 17,   moveX: 2,  invuln: 30, elem: 'METAL' }
+};
+
+const SKILLS = JSON.parse(JSON.stringify(BASE_SKILLS));
+
+const CYBER_CHIPS = [
+  {
+    id: 'CHIP_OVERCLOCK',
+    name: '【龙胆·超导谐振核心 Mk.III】',
+    slot: 'SLOT 01 · 电机超频核心',
+    cost: 600,
+    installed: false,
+    desc: '高周波电机超频：所有招式【前摇缩短 2 帧】（一段疾刺达 3帧 极限起手），且动作【取消窗口提前 3 帧】开放！'
+  },
+  {
+    id: 'CHIP_THUNDER_COAT',
+    name: '【紫电·高压等离子镀层】',
+    slot: 'SLOT 02 · 五行纳米涂装',
+    cost: 550,
+    installed: false,
+    desc: '全招式强化五行附魔属性，且对所有 Boss 五行护盾【削韧提升 +40%】！'
+  },
+  {
+    id: 'CHIP_PHANTOM_INVULN',
+    name: '【常山·光学残影发生器】',
+    slot: 'SLOT 03 · 战术无敌固件',
+    cost: 750,
+    installed: false,
+    desc: '全招式【无敌帧延长 +6 帧】（连普攻起手都自带闪避无敌帧），且基础攻击伤害提升【+25%】！'
+  },
+  {
+    id: 'CHIP_VAMPIRIC_NANO',
+    name: '【武神·纳米汲取回路】',
+    slot: 'SLOT 04 · 续航共鸣芯片',
+    cost: 500,
+    installed: false,
+    desc: '每次攻击命中敌人自动【回复 18 HP】并额外充能【+10 怒气值】，更易攒满2格气释放双人合体奥义！'
+  }
+];
+
+// ============================================================================
+// 6. 六大街机战役荣誉勋章（含“桃园共鸣：双人合体奥义”勋章）与 LocalStorage
+// ============================================================================
+const MEDAL_CATALOG = [
+  { id: 'MEDAL_SECRET_SWORD',    icon: '🗡️', name: '古董黑客',   reward: 400, desc: '第一关30秒内火攻破门夺取【青釭剑】(+400PT)' },
+  { id: 'MEDAL_ZHANGJIAO_BACK',  icon: '⚡', name: '苍天已死',   reward: 500, desc: '用消防栓积水反噬赛博张角的五雷轰顶破盾 (+500PT)' },
+  { id: 'MEDAL_XIAHOUDUN_LASER', icon: '🏍️', name: '盲夏侯受创', reward: 600, desc: '第二关将机车夏侯惇挑空撞上车顶激光削半血 (+600PT)' },
+  { id: 'MEDAL_COOP_ULT',        icon: '🤝', name: '桃园共鸣',   reward: 600, desc: '实战中按[Y]键释放双人合体奥义重创Boss (+600PT)' },
+  { id: 'MEDAL_RANK_SSS',        icon: '👑', name: '都市武神',   reward: 800, desc: '达成最高 SSS 级华丽度评价 (+800PT)' },
+  { id: 'MEDAL_NG_PLUS',         icon: '😈', name: '修罗霸王',   reward: 1000, desc: '通关二周目2x攻速修罗战役 (+1000PT)' }
+];
+
+const SAVE_STORAGE_KEY = 'KOV_URBAN_ARCADE_COMPLETE_V6';
+const RANK_ORDER = ['-', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+
+const careerSaveData = {
+  wallet: 650,
+  installedChips: [],
+  bestCombo: 0,
+  bestRank: '-',
+  fastestClearFrames: null,
+  totalBossKills: 0,
+  secretSwordFound: false,
+  unlockedMedals: []
+};
+
+function formatFramesToTime(frames) {
+  if (frames === null || frames === undefined || frames <= 0) return '--:--.--';
+  const totalSeconds = frames / 60;
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = Math.floor(totalSeconds % 60);
+  const hundredths = Math.floor((totalSeconds - Math.floor(totalSeconds)) * 100);
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}`;
+}
+
+function loadGameFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(SAVE_STORAGE_KEY);
+    if (raw) Object.assign(careerSaveData, JSON.parse(raw));
+  } catch (e) {}
+  CYBER_CHIPS.forEach(c => { c.installed = careerSaveData.installedChips.includes(c.id); });
+  recalculateSkillsFromChips();
+}
+
+function saveGameToLocalStorage() {
+  try {
+    careerSaveData.installedChips = CYBER_CHIPS.filter(c => c.installed).map(c => c.id);
+    localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify(careerSaveData));
+    const badge = document.getElementById('save-status-indicator');
+    if (badge) badge.innerText = '💾 存档已自动写入 (' + new Date().toLocaleTimeString() + ')';
+  } catch (e) {}
+}
+
+window.wipeSaveData = function() {
+  if (!confirm('确定要清空所有赛博芯片、将星点数、最高记录与成就勋章吗？')) return;
+  localStorage.removeItem(SAVE_STORAGE_KEY);
+  careerSaveData.wallet = 650;
+  careerSaveData.installedChips = [];
+  careerSaveData.bestCombo = 0;
+  careerSaveData.bestRank = '-';
+  careerSaveData.fastestClearFrames = null;
+  careerSaveData.totalBossKills = 0;
+  careerSaveData.secretSwordFound = false;
+  careerSaveData.unlockedMedals = [];
+  CYBER_CHIPS.forEach(c => c.installed = false);
+  recalculateSkillsFromChips();
+  saveGameToLocalStorage();
+  renderShopUI();
+};
+
+let toastTimeout = null;
+function tryUnlockMedal(medalId) {
+  if (careerSaveData.unlockedMedals.includes(medalId)) return;
+  const medal = MEDAL_CATALOG.find(m => m.id === medalId);
+  if (!medal) return;
+
+  careerSaveData.unlockedMedals.push(medalId);
+  careerSaveData.wallet += medal.reward;
+  sfx.playMedalUnlock();
+  saveGameToLocalStorage();
+
+  document.getElementById('toast-icon').innerText = medal.icon;
+  document.getElementById('toast-title').innerText = `解锁街机成就勋章：【${medal.name}】！`;
+  document.getElementById('toast-desc').innerText = `${medal.desc}（已自动存入 LocalStorage）`;
+
+  const toastEl = document.getElementById('achievement-toast');
+  toastEl.classList.add('show');
+  if (toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => toastEl.classList.remove('show'), 3600);
+  if (shopState.isOpen) renderShopUI();
+}
+
+function updateBestRankRecord(newRank) {
+  if (RANK_ORDER.indexOf(newRank) > RANK_ORDER.indexOf(careerSaveData.bestRank)) {
+    careerSaveData.bestRank = newRank;
+    saveGameToLocalStorage();
+  }
+  if (newRank === 'SSS') tryUnlockMedal('MEDAL_RANK_SSS');
+}
+
+// ============================================================================
+// 7. 赛博芯片改装商店 UI 与武将专属帧数据热更新
+// ============================================================================
+const shopState = { isOpen: false };
+
+function recalculateSkillsFromChips() {
+  const hero = HERO_ROSTER[screenFlow.selectedHeroIdx] || HERO_ROSTER[0];
+  const hasOverclock = CYBER_CHIPS.find(c => c.id === 'CHIP_OVERCLOCK').installed;
+  const hasThunder   = CYBER_CHIPS.find(c => c.id === 'CHIP_THUNDER_COAT').installed;
+  const hasPhantom   = CYBER_CHIPS.find(c => c.id === 'CHIP_PHANTOM_INVULN').installed;
+
+  for (const key of Object.keys(BASE_SKILLS)) {
+    const base = BASE_SKILLS[key];
+    const mod = { ...base };
+
+    if (key !== 'ZY_SLIDE') {
+      mod.elem = hero.elem;
+    }
+    mod.range  = base.range + hero.rangeBonus;
+    mod.dmg    = Math.round(base.dmg * hero.dmgMult);
+    mod.shield = Math.round(base.shield * hero.shieldMult);
+
+    if (key === 'ZY_236A') mod.name = hero.moveNames.s236;
+    if (key === 'ZY_28A')  mod.name = hero.moveNames.s28;
+    if (key === 'ZY_SUPER')mod.name = hero.moveNames.super;
+
+    if (hasOverclock) {
+      mod.startup = Math.max(3, mod.startup - 2);
+      mod.cancel  = Math.max(mod.startup + 1, mod.cancel - 3);
+    }
+    if (hasThunder && key !== 'ZY_SLIDE') {
+      mod.shield = Math.round(mod.shield * 1.4);
+    }
+    if (hasPhantom) {
+      mod.invuln = mod.invuln + 6;
+      mod.dmg    = Math.round(mod.dmg * 1.25);
+    }
+    SKILLS[key] = mod;
+  }
+}
+
+function openCyberShopModal(isVictoryTrigger = false) {
+  shopState.isOpen = true;
+  if (isVictoryTrigger) {
+    const tier = styleSystem.getTier();
+    const multMap = { 'SSS': 3.0, 'SS': 2.2, 'S': 1.6, 'A': 1.3, 'B': 1.1, 'C': 1.0, 'D': 0.8, '-': 0.8 };
+    const reward = Math.round(700 * (multMap[tier.rank] || 1.0));
+    careerSaveData.wallet += reward;
+    careerSaveData.totalBossKills++;
+
+    const isNewTimeRecord = careerSaveData.fastestClearFrames === null || game.runTimerFrames < careerSaveData.fastestClearFrames;
+    if (isNewTimeRecord) careerSaveData.fastestClearFrames = game.runTimerFrames;
+
+    if (game.isNGPlus) tryUnlockMedal('MEDAL_NG_PLUS');
+    saveGameToLocalStorage();
+
+    document.getElementById('clear-summary-text').innerHTML =
+      `🏆 三关三Boss战役全破！使用武将: <b style="color:#4ade80">${player.hero.name}</b> | 总用时: <b style="color:#38bdf8">${formatFramesToTime(game.runTimerFrames)}</b> | 评价: <b style="color:${tier.color}">${tier.rank}</b> | 赏金: <b style="color:#fbbf24">+${reward} 芯片</b>`;
+  } else {
+    document.getElementById('clear-summary-text').innerHTML =
+      `📋 战术整备中（当前出战：<b style="color:#38bdf8">${player.hero.name}</b> | 按 <b style="color:#fff">Tab</b> 键返回战场）`;
+  }
+  renderShopUI();
+  document.getElementById('cyber-shop-modal').style.display = 'flex';
+}
+
+function renderShopUI() {
+  document.getElementById('wallet-amount').innerText = careerSaveData.wallet;
+  document.getElementById('rec-best-combo').innerText = `${careerSaveData.bestCombo} Hits`;
+  document.getElementById('rec-best-rank').innerText = careerSaveData.bestRank;
+  document.getElementById('rec-fastest-time').innerText = formatFramesToTime(careerSaveData.fastestClearFrames);
+  document.getElementById('rec-secret-sword').innerText = careerSaveData.secretSwordFound ? '🗡️ 已破门夺取' : '🔒 未获取';
+
+  const container = document.getElementById('chip-cards-container');
+  container.innerHTML = '';
+  CYBER_CHIPS.forEach(chip => {
+    const card = document.createElement('div');
+    card.className = `chip-card ${chip.installed ? 'installed' : ''}`;
+    card.innerHTML = `
+      <div>
+        <div class="chip-slot">${chip.slot}</div>
+        <div class="chip-name">${chip.name}</div>
+        <div class="chip-desc">${chip.desc}</div>
+      </div>
+      <button class="chip-btn ${chip.installed ? 'installed-btn' : ''}" onclick="installChip('${chip.id}')">
+        ${chip.installed ? '✅ 已永久安装 (SAVED)' : `🪙 点击安装 (${chip.cost} PT)`}
+      </button>
+    `;
+    container.appendChild(card);
+  });
+
+  const tbody = document.getElementById('frame-diag-tbody');
+  tbody.innerHTML = '';
+  ['ZY_5A1', 'ZY_5A4', 'ZY_236A', 'ZY_28A', 'ZY_SUPER'].forEach(k => {
+    const b = BASE_SKILLS[k], c = SKILLS[k];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:#f8fafc; font-weight:bold;">${c.name}</td>
+      <td>${b.startup}F➔<span class="${c.startup < b.startup ? 'stat-up' : ''}">${c.startup}F</span></td>
+      <td>${b.cancel}F➔<span class="${c.cancel < b.cancel ? 'stat-up' : ''}">${c.cancel}F</span></td>
+      <td>${b.shield}➔<span class="${c.shield > b.shield ? 'stat-up' : ''}">${c.shield}</span></td>
+      <td>${b.invuln}F➔<span class="${c.invuln > b.invuln ? 'stat-up' : ''}">${c.invuln}F</span></td>
+      <td><span class="stat-up">${c.elem}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  const medalGrid = document.getElementById('medal-grid-container');
+  medalGrid.innerHTML = '';
+  MEDAL_CATALOG.forEach(m => {
+    const unlocked = careerSaveData.unlockedMedals.includes(m.id);
+    const div = document.createElement('div');
+    div.className = `medal-badge ${unlocked ? 'unlocked' : ''}`;
+    div.innerHTML = `<div class="medal-name">${m.icon} ${m.name} ${unlocked ? '✓' : '🔒'}</div><div class="medal-desc">${m.desc}</div>`;
+    medalGrid.appendChild(div);
+  });
+}
+
+window.installChip = function(chipId) {
+  sfx.init();
+  const chip = CYBER_CHIPS.find(c => c.id === chipId);
+  if (!chip || chip.installed) return;
+  if (careerSaveData.wallet < chip.cost) {
+    alert(`芯片点数不足！安装 ${chip.name} 需要 ${chip.cost} PT，当前余额 ${careerSaveData.wallet} PT。`);
+    return;
+  }
+  careerSaveData.wallet -= chip.cost;
+  chip.installed = true;
+  sfx.playMedalUnlock();
+  recalculateSkillsFromChips();
+  saveGameToLocalStorage();
+  renderShopUI();
+};
+
+window.returnToCharSelect = function(enableNGPlus) {
+  shopState.isOpen = false;
+  document.getElementById('cyber-shop-modal').style.display = 'none';
+  game.isNGPlus = enableNGPlus;
+  screenFlow.mode = 'CHAR_SELECT';
+  screenFlow.selectCountdownFrames = 20 * 60;
+  if (screenFlow.credits <= 0) screenFlow.credits = 1;
+};
+
+// ============================================================================
+// 8. 战役状态、玩家与三大守关 Boss 实体
+// ============================================================================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const Z_MIN = 290, Z_MAX = 495;
+
+const campaign = {
+  stage: 1,
+  stageTitle: '第一关：火烧洛阳街·霓虹夜市',
+  wave: 1,
+  maxWaves: 2,
+  bossSpawnedThisStage: false,
+  stageCleared: false,
+  showGoArrow: false,
+
+  shutterDoor: {
+    x: 880, z: 350, hp: 200, maxHp: 200, timerFrames: 1800, breached: false, lockedForever: false
+  },
+
+  laserBeam: {
+    phase: 'IDLE', timer: 240, x: 960, speedX: 24, hitSet: new Set()
+  },
+  brakeTimer: 450,
+  brakeActiveFrames: 0,
+  electricGateX: 70
+};
+
+const mobs = [];
+const stageProps = [];
+const homingMissiles = [];
+
+const player = {
+  hero: HERO_ROSTER[0],
+  x: 160, y: 0, z: 400, vy: 0, facing: 1, hp: 1000, maxHp: 1000, rage: 200, maxRage: 400,
+  isMaxMode: false, maxTimer: 0, state: 'IDLE', stateFrame: 0, comboStep: 0,
+  activeSkill: null, isManualCast: false, hasHitSkill: false, guardFrames: 0, hitstop: 0, afterimages: [],
+  artifacts: [
+    { id: 'QINGGANG', name: '极寒·青釭剑(密室神兵)', charges: 1, elem: 'WATER', color: '#38bdf8' },
+    { id: 'TAIPING',  name: '太平要术·雷暴无人机', charges: 3, elem: 'METAL', color: '#a855f7' },
+    { id: 'EMP',      name: '八卦·EMP脉冲手雷', charges: 3, elem: 'EMP', color: '#facc15' }
+  ],
+  activeArtifactIdx: 0
+};
+
+const boss = {
+  active: false,
+  bossType: 'ZHANG_JIAO',
+  name: '黄巾黑客教主·赛博张角',
+  x: 720, y: 0, z: 400, vy: 0, facing: -1,
+  hp: 2800, maxHp: 2800, shield: 220, maxShield: 220,
+  phase: 1, elem: 'WOOD',
+  state: 'IDLE', stateFrame: 0, currentMove: null, hitstop: 0, isWet: false, flashWhite: 0
+};
+
+const ZHANGJIAO_MOVES = {
+  CABLE_WHIP: { id: 'ZJ_CABLE_WHIP', name: '苍天已死·光纤数据触手横扫', startup: 24, active: 10, recovery: 36, dmg: 115, range: 155, speedX: 2, armor: 1 },
+  SUMMON_TURBAN: { id: 'ZJ_SUMMON', name: '太平要术·全息黄巾力士召唤(40帧破绽)', startup: 32, active: 6, recovery: 42, dmg: 80, range: 90, speedX: 0, armor: 1, isSummon: true },
+  THUNDER_MATRIX: { id: 'ZJ_THUNDER_MATRIX', name: '黄天当立·五雷轰顶矩阵(站在积水区必反噬自身!)', startup: 38, active: 20, recovery: 48, dmg: 165, range: 230, speedX: 0, armor: 2, isThunderMatrix: true }
+};
+
+const XIAHOUDUN_MOVES = {
+  BIKE_DRIFT_RUSH: { id: 'XHD_BIKE_RUSH', name: '盲夏侯·赛博哈雷氮气冲锋(引向左侧电网可短路!)', startup: 28, active: 26, recovery: 40, dmg: 135, range: 115, speedX: 10.5, armor: 2 },
+  HOMING_MISSILE_BARRAGE: { id: 'XHD_MISSILE', name: '拔矢啖睛·红莲跟踪导弹齐射(挥枪可反抽导弹破盾!)', startup: 26, active: 8, recovery: 38, dmg: 95, range: 90, speedX: 0, armor: 1, isMissileBarrage: true },
+  EXHAUST_FLAME_SPIN: { id: 'XHD_SPIN', name: '苍狼怒嚎·重机车甩尾大刀斩', startup: 22, active: 10, recovery: 36, dmg: 145, range: 140, speedX: 3, armor: 1 }
+};
+
+const LUBU_MOVES = {
+  P1_CHARGE:      { id: 'P1_CHARGE',      name: '赤兔咆哮·全屏氮气冲撞',           startup: 36, active: 28, recovery: 44, dmg: 145, range: 115, speedX: 11, armor: 2 },
+  COMBO_SMASH:    { id: 'COMBO_SMASH',    name: '方天画戟·裂地痛击斩',             startup: 26, active: 8,  recovery: 38, dmg: 165, range: 135, speedX: 2.5,armor: 1 },
+  P2_GRAB:        { id: 'P2_GRAB',        name: '霸王擒拿·高频处决投(起跳可躲)',   startup: 20, active: 6,  recovery: 34, dmg: 195, range: 95,  speedX: 0,  armor: 2, isGrab: true },
+  P3_SKY_HALBERD: { id: 'P3_SKY_HALBERD', name: '神鬼乱舞·天基方天画戟(EMP可截击)',startup: 44, active: 24, recovery: 80, dmg: 280, range: 260, speedX: 0,  armor: 99 }
+};
+
+const game = {
+  frame: 0, runTimerFrames: 0,
+  superFreeze: 0, cutInText: '', cutInColor: '#38bdf8',
+  shake: 0, stormRainTimer: 500, isRaining: false, isNGPlus: false
+};
+
+function confirmHeroSelectionAndEnterMap() {
+  if (screenFlow.credits <= 0) {
+    sfx.playCoinInsert();
+    screenFlow.credits = 1;
+  }
+  screenFlow.credits--;
+  sfx.playHeroConfirm();
+
+  const chosen = HERO_ROSTER[screenFlow.selectedHeroIdx];
+  player.hero = chosen;
+  player.maxHp = chosen.hp;
+  player.hp = chosen.hp;
+  player.rage = 220; // 开局赠送 2.2 格气，方便直接体验 Y 键双人合体奥义！
+
+  assistSystem.partnerIdx = (screenFlow.selectedHeroIdx + 1) % HERO_ROSTER.length;
+  assistSystem.cooldown = 0;
+
+  const chargeBonus = chosen.id === 'ZHUGE_LIANG' ? 2 : 1;
+  player.artifacts[0].charges = (careerSaveData.secretSwordFound ? 3 : 1) * chargeBonus;
+  player.artifacts[1].charges = 3 * chargeBonus;
+  player.artifacts[2].charges = 3 * chargeBonus;
+
+  recalculateSkillsFromChips();
+  game.runTimerFrames = 0;
+  styleSystem.points = 0; styleSystem.combo = 0;
+
+  openMetroMapTransition(0, 1);
+}
+
+function openMetroMapTransition(fromStage, toStage) {
+  screenFlow.mode = 'METRO_MAP';
+  screenFlow.mapFromStage = fromStage;
+  screenFlow.mapToStage = toStage;
+  screenFlow.mapProgress = 0;
+  screenFlow.mapReadyToStart = false;
+  sfx.playMetroDepart();
+}
+
+function loadStage(stageNum) {
+  screenFlow.mode = 'BATTLE';
+  campaign.stage = stageNum;
+  campaign.wave = 1;
+  campaign.bossSpawnedThisStage = false;
+  campaign.stageCleared = false;
+  campaign.showGoArrow = false;
+  mobs.length = 0;
+  stageProps.length = 0;
+  homingMissiles.length = 0;
+  assistSystem.activeStriker = null;
+  assistSystem.coopUlt.active = false;
+  boss.active = false;
+  player.x = 140; player.z = 400; player.y = 0; player.state = 'IDLE';
+
+  if (stageNum === 1) {
+    campaign.stageTitle = '第一关：火烧洛阳街 · 霓虹夜市 (关底Boss:赛博张角)';
+    campaign.maxWaves = 2;
+    sfx.setBgmTempo(game.isNGPlus ? 140 : 128);
+
+    campaign.shutterDoor = { x: 880, z: 350, hp: 200, maxHp: 200, timerFrames: 1800, breached: false, lockedForever: false };
+    stageProps.push(
+      { id: 'HYDRANT', name: '夜市中央·高压消防栓(积水可反噬张角天雷!)', x: 430, z: 420, hp: 50, maxHp: 50, radius: 165, state: 'INTACT', timer: 0 },
+      { id: 'GASTANK', name: '音像店门口烧烤煤气罐(引爆破门!)', x: 825, z: 365, hp: 40, maxHp: 40, radius: 155, state: 'INTACT', timer: 0 }
+    );
+    spawnStageWave(1, 1);
+    triggerCutIn(`STAGE 1 · ${player.hero.name} 出击! (按Q呼叫援护 / 按Y放双人合体奥义)`, player.hero.weaponColor, 24);
+  }
+  else if (stageNum === 2) {
+    campaign.stageTitle = '第二关：千里走单骑 · 疾驰地铁 (关底Boss:重装机车夏侯惇)';
+    campaign.maxWaves = 2;
+    sfx.setBgmTempo(game.isNGPlus ? 148 : 136);
+
+    campaign.laserBeam = { phase: 'IDLE', timer: 210, x: 960, speedX: 24, hitSet: new Set() };
+    campaign.brakeTimer = 380;
+    campaign.brakeActiveFrames = 0;
+    spawnStageWave(2, 1);
+    triggerCutIn('STAGE 2 · 疾驰磁悬浮地铁 (清完特种兵后迎战机车夏侯惇!)', '#38bdf8', 24);
+  }
+  else if (stageNum === 3) {
+    campaign.stageTitle = '最终关：水淹七军 · 曹氏大厦108层天台决战';
+    campaign.maxWaves = 1;
+    campaign.bossSpawnedThisStage = true;
+    sfx.setBgmTempo(game.isNGPlus ? 156 : 142);
+
+    stageProps.push(
+      { id: 'NITROGEN', name: '左翼·极寒液氮冷却塔', x: 150, z: 380, hp: 80, maxHp: 80, radius: 135, state: 'INTACT', timer: 0 },
+      { id: 'HYDRANT',  name: '天台·高压消防水阀',   x: 470, z: 425, hp: 50, maxHp: 50, radius: 145, state: 'INTACT', timer: 0 },
+      { id: 'GASTANK',  name: '右翼·航空燃油补给箱', x: 810, z: 375, hp: 40, maxHp: 40, radius: 150, state: 'INTACT', timer: 0 }
+    );
+
+    spawnBossEntity('LU_BU');
+    triggerCutIn(game.isNGPlus ? 'FINAL STAGE · 二周目双倍攻速魔神吕布!' : 'FINAL STAGE · 重装机甲吕布降临!', '#ef4444', 30);
+  }
+}
+
+function spawnBossEntity(type) {
+  boss.active = true;
+  boss.bossType = type;
+  boss.x = 740; boss.z = 400; boss.y = 0; boss.vy = 0; boss.facing = -1;
+  boss.state = 'IDLE'; boss.stateFrame = 0; boss.phase = 1;
+
+  if (type === 'ZHANG_JIAO') {
+    boss.name = '黄巾黑客教主·赛博张角';
+    boss.maxHp = game.isNGPlus ? 4500 : 2800;
+    boss.hp = boss.maxHp;
+    boss.maxShield = game.isNGPlus ? 340 : 220;
+    boss.shield = boss.maxShield;
+    boss.elem = 'WOOD';
+    const hydrant = stageProps.find(p => p.id === 'HYDRANT');
+    if (hydrant && hydrant.state === 'DESTROYED') {
+      hydrant.state = 'INTACT'; hydrant.hp = 50;
+    }
+    triggerCutIn('第一关守关BOSS · 黄巾黑客教主【赛博张角】降临!', '#eab308', 28);
+  }
+  else if (type === 'XIAHOU_DUN') {
+    boss.name = '独眼重装机车·夏侯惇';
+    boss.maxHp = game.isNGPlus ? 5600 : 3600;
+    boss.hp = boss.maxHp;
+    boss.maxShield = game.isNGPlus ? 380 : 260;
+    boss.shield = boss.maxShield;
+    boss.elem = 'EARTH';
+    campaign.laserBeam.phase = 'IDLE';
+    campaign.laserBeam.timer = 150;
+    triggerCutIn('第二关守关BOSS · 独眼重装机车【夏侯惇】杀上车顶!', '#38bdf8', 28);
+  }
+  else {
+    boss.name = '重装机甲吕布 (Mecha Lu Bu)';
+    boss.maxHp = game.isNGPlus ? 7500 : 4500;
+    boss.hp = boss.maxHp;
+    boss.maxShield = game.isNGPlus ? 500 : 300;
+    boss.shield = boss.maxShield;
+    boss.elem = 'METAL';
+  }
+}
+
+function spawnStageWave(stageNum, waveIdx) {
+  const hpMult = game.isNGPlus ? 1.5 : 1.0;
+  if (stageNum === 1) {
+    mobs.push(
+      createMob('黄巾义体混混#A', 'PUNK', 520, 360, Math.round(240 * hpMult)),
+      createMob('黄巾义体混混#B', 'PUNK', 660, 435, Math.round(240 * hpMult)),
+      createMob('黄巾重装纵火狂(死后自爆火海)', 'ARSONIST', 805, 365, Math.round(350 * hpMult))
+    );
+  } else if (stageNum === 2) {
+    mobs.push(
+      createMob('曹氏飞索特种兵#1', 'COMMANDO', 480, 355, Math.round(300 * hpMult)),
+      createMob('曹氏飞索特种兵#2', 'COMMANDO', 680, 425, Math.round(300 * hpMult)),
+      createMob('曹氏重甲防暴卫#3', 'ARSONIST', 780, 390, Math.round(420 * hpMult))
+    );
+  }
+}
+
+function createMob(name, type, x, z, maxHp) {
+  return {
+    name, type, x, y: 0, z, vy: 0, facing: -1,
+    hp: maxHp, maxHp,
+    state: 'APPROACH', stateFrame: 0, hitstop: 0, isWet: false, flashWhite: 0
+  };
+}
+
+// ============================================================================
+// 9. 键盘与鼠标点击输入 (新增 Q 键援护与 Y / U+H 双人合体奥义触发)
+// ============================================================================
+const keys = {};
+const inputBuffer = [];
+
+canvas.addEventListener('mousedown', e => {
+  sfx.init();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  if (screenFlow.mode === 'CHAR_SELECT') {
+    if (mx >= 720 && my <= 75) {
+      screenFlow.credits++;
+      sfx.playCoinInsert();
+      return;
+    }
+    for (let i = 0; i < 4; i++) {
+      const cx = 48 + i * 222;
+      if (mx >= cx && mx <= cx + 204 && my >= 115 && my <= 435) {
+        if (screenFlow.selectedHeroIdx !== i) {
+          screenFlow.selectedHeroIdx = i;
+          sfx.playCursorMove();
+        } else {
+          confirmHeroSelectionAndEnterMap();
+        }
+        return;
+      }
+    }
+  } else if (screenFlow.mode === 'METRO_MAP') {
+    loadStage(screenFlow.mapToStage);
+  }
+});
+
+window.addEventListener('keydown', e => {
+  sfx.init();
+  const k = e.key.toLowerCase();
+
+  if (k === '5' || k === 'c') {
+    screenFlow.credits++;
+    sfx.playCoinInsert();
+    if (screenFlow.mode === 'BATTLE' && player.hp <= 0) {
+      screenFlow.credits--;
+      player.hp = player.maxHp;
+      player.rage = 250;
+      player.state = 'IDLE';
+      triggerCutIn('INSERT COIN · 街机续币满血复活!', '#4ade80', 22);
+    }
+    return;
+  }
+
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    if (shopState.isOpen) {
+      shopState.isOpen = false;
+      document.getElementById('cyber-shop-modal').style.display = 'none';
+    } else openCyberShopModal(false);
+    return;
+  }
+
+  if (shopState.isOpen) return;
+
+  if (screenFlow.mode === 'CHAR_SELECT') {
+    if (k === 'a' || k === 'arrowleft') {
+      screenFlow.selectedHeroIdx = (screenFlow.selectedHeroIdx + 3) % 4;
+      sfx.playCursorMove();
+    } else if (k === 'd' || k === 'arrowright') {
+      screenFlow.selectedHeroIdx = (screenFlow.selectedHeroIdx + 1) % 4;
+      sfx.playCursorMove();
+    } else if (k === 'j' || k === ' ' || k === 'enter') {
+      confirmHeroSelectionAndEnterMap();
+    }
+    return;
+  }
+
+  if (screenFlow.mode === 'METRO_MAP') {
+    if (k === 'j' || k === ' ' || k === 'enter') {
+      loadStage(screenFlow.mapToStage);
+    }
+    return;
+  }
+
+  if (e.key === 'F8') {
+    e.preventDefault();
+    const nextSt = campaign.stage < 3 ? campaign.stage + 1 : 1;
+    openMetroMapTransition(campaign.stage, nextSt);
+    return;
+  }
+
+  if (e.key === 'F9') {
+    e.preventDefault();
+    if (campaign.stage < 3 && !campaign.bossSpawnedThisStage) {
+      mobs.length = 0;
+      campaign.wave = campaign.maxWaves;
+    } else if (boss.active) {
+      boss.hp = 0;
+      handleBossDefeated();
+    }
+    return;
+  }
+
+  if (!keys[k]) {
+    keys[k] = true;
+    inputBuffer.push({ key: k, frame: game.frame });
+    if (inputBuffer.length > 20) inputBuffer.shift();
+    handleInstantKeyPress(k);
+  }
+  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+function checkMotionInput(seq, maxFrames = 22) {
+  let idx = seq.length - 1;
+  for (let i = inputBuffer.length - 1; i >= 0; i--) {
+    if (game.frame - inputBuffer[i].frame > maxFrames) break;
+    if (inputBuffer[i].key === seq[idx]) {
+      idx--;
+      if (idx < 0) { inputBuffer.length = 0; return true; }
+    }
+  }
+  return false;
+}
+
+const particles = [], floatingTexts = [], lightnings = [];
+function spawnText(x, y, text, color = '#fff', size = 18) {
+  floatingTexts.push({ x, y, text, color, size, life: 45, vy: -1.5 });
+}
+function spawnParticles(x, y, color, count = 12, speed = 5) {
+  for (let i = 0; i < count; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = (0.3 + Math.random() * 0.7) * speed;
+    particles.push({ x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd - 1.5, color, size: 2 + Math.random() * 4, life: 18 + Math.random() * 16 });
+  }
+}
+function spawnLightning(x1, y1, x2, y2, color = '#38bdf8') {
+  lightnings.push({ x1, y1, x2, y2, color, life: 10 });
+}
+
+const RANK_TIERS = [
+  { rank: 'SSS', title: '都市武神 SSSENSATIONAL!', min: 3200, color: '#fbbf24', decay: 1.7 },
+  { rank: 'SS',  title: '天下无敌 SSADISTIC!',    min: 2200, color: '#f97316', decay: 1.3 },
+  { rank: 'S',   title: '横扫千军 SAVAGE!',       min: 1400, color: '#ef4444', decay: 0.9 },
+  { rank: 'A',   title: '一骑当千 ANARCHIC!',     min: 850,  color: '#a855f7', decay: 0.65 },
+  { rank: 'B',   title: '威震华夏 BRUTAL!',       min: 450,  color: '#38bdf8', decay: 0.45 },
+  { rank: 'C',   title: '勇冠三军 COOL!',         min: 180,  color: '#22c55e', decay: 0.25 },
+  { rank: 'D',   title: '初露锋芒 DULL',          min: 50,   color: '#94a3b8', decay: 0.15 },
+  { rank: '-',   title: '按Q援护 / 按Y双人合体',   min: 0,    color: '#475569', decay: 0 }
+];
+
+const styleSystem = {
+  points: 0, combo: 0, maxCombo: 0, comboTimer: 0, noDamageFrames: 0, recentSkills: [], justGuards: 0, envSynergies: 0,
+  tick() {
+    this.noDamageFrames++;
+    if (this.combo > 0 && --this.comboTimer <= 0) this.combo = 0;
+    if (this.points > 0 && this.comboTimer < 90) {
+      this.points = Math.max(0, this.points - this.getTier().decay);
+    }
+  },
+  recordHit(skillId, dmg, isManual, isPunish) {
+    this.combo++;
+    this.maxCombo = Math.max(this.maxCombo, this.combo);
+    this.comboTimer = 180;
+    if (this.combo > careerSaveData.bestCombo) {
+      careerSaveData.bestCombo = this.combo;
+      saveGameToLocalStorage();
+    }
+    const repeats = this.recentSkills.filter(s => s === skillId).length;
+    const varietyMult = repeats === 0 ? 1.35 : repeats === 1 ? 1.0 : 0.4;
+    this.recentSkills.push(skillId);
+    if (this.recentSkills.length > 4) this.recentSkills.shift();
+    const noDmgMult = 1 + Math.min(0.5, Math.floor(this.noDamageFrames / 600) * 0.1);
+    const bonus = (isManual ? 1.2 : 1.0) * (isPunish ? 1.45 : 1.0);
+    this.points += Math.round((55 + dmg * 0.4) * varietyMult * noDmgMult * bonus);
+    updateBestRankRecord(this.getTier().rank);
+  },
+  recordBigBonus(pts, label, x, y) {
+    this.comboTimer = 180;
+    this.points += pts;
+    spawnText(x, y - 90, `${label} +${pts}pt!`, '#fbbf24', 20);
+    updateBestRankRecord(this.getTier().rank);
+  },
+  onTakeDamage() {
+    this.noDamageFrames = 0; this.combo = 0;
+    this.points = Math.max(0, Math.round(this.points * 0.55));
+  },
+  getTier() { return RANK_TIERS.find(t => this.points >= t.min) || RANK_TIERS[RANK_TIERS.length - 1]; }
+};
+
+function triggerCutIn(title, color = '#38bdf8', freezeFrames = 26) {
+  game.superFreeze = freezeFrames; game.cutInText = title; game.cutInColor = color; game.shake = 10;
+  sfx.playSuperCutIn();
+}
+
+function handleInstantKeyPress(k) {
+  if (k === 'm') {
+    const muted = sfx.toggleMute();
+    spawnText(player.x, player.z - 80, muted ? '🔇 音效已静音' : '🔊 赛博国潮合成器已开启', '#38bdf8', 16);
+    return;
+  }
+  if (player.hp <= 0) { if (k === 'r') window.returnToCharSelect(game.isNGPlus); return; }
+  if (assistSystem.coopUlt.active) return;
+
+  // Q 键：呼叫待命蜀汉武将入场发动【援护追击（Assist Attack）】
+  if (k === 'q') {
+    triggerAssistAttack();
+    return;
+  }
+
+  // Y 键 (或 U+H 同按)：消耗 2 格将星怒气释放【双人合体奥义】全屏特写动画！
+  if (k === 'y' || (keys['u'] && keys['h'])) {
+    triggerCoopUltimate();
+    return;
+  }
+
+  if (k === 'o') {
+    player.activeArtifactIdx = (player.activeArtifactIdx + 1) % player.artifacts.length;
+    const art = player.artifacts[player.activeArtifactIdx];
+    spawnText(player.x, player.z - 85, `切换法宝: [${art.name}]`, art.color, 15);
+    return;
+  }
+
+  if (k === ' ') {
+    if (player.rage >= 100) {
+      player.rage -= 100; player.isMaxMode = true; player.maxTimer = 600;
+      player.state = 'IDLE'; player.activeSkill = null;
+      triggerCutIn(`MAX OVERDRIVE · ${player.hero.name} 将星爆气取消!`, '#fbbf24', 18);
+      spawnParticles(player.x, player.z - 40, '#fbbf24', 28, 8);
+    } else spawnText(player.x, player.z - 70, '怒气不足1格!', '#94a3b8', 14);
+    return;
+  }
+
+  if (k === 'p' && player.state !== 'HURT') { useActiveArtifact(); return; }
+
+  if (k === 'l' && player.state !== 'HURT') {
+    if (keys['a'] || keys['d']) {
+      player.state = 'DODGE'; player.stateFrame = 0;
+      spawnText(player.x, player.z - 65, '无敌瞬步!', '#38bdf8', 14);
+    } else {
+      player.state = 'GUARD'; player.stateFrame = 0; player.guardFrames = 0;
+    }
+    return;
+  }
+
+  if (k === 'k' && player.y === 0 && ['IDLE', 'MOVE'].includes(player.state)) {
+    if (keys['s']) {
+      startPlayerSkill(SKILLS.ZY_SLIDE, true);
+      spawnText(player.x, player.z - 60, '贴地战术滑铲!', '#38bdf8', 15);
+    } else {
+      player.vy = 11.5;
+    }
+    return;
+  }
+
+  if (k === 'h') {
+    if (player.rage >= 100) {
+      player.rage -= 100;
+      triggerCutIn(`${player.hero.moveNames.super}!`, player.hero.weaponColor, 28);
+      startPlayerSkill(SKILLS.ZY_SUPER, true);
+    } else spawnText(player.x, player.z - 70, '需1格怒气释放超必杀!', '#ef4444', 15);
+    return;
+  }
+
+  if (k === 'u') { startPlayerSkill(SKILLS.ZY_236A, false); return; }
+  if (k === 'i') { startPlayerSkill(SKILLS.ZY_28A, false); return; }
+
+  if (k === 'j') {
+    const fwd = player.facing === 1 ? 'd' : 'a';
+    if (checkMotionInput(['s', 'w', 'j'])) {
+      spawnText(player.x, player.z - 95, `手搓指令: ${player.hero.moveNames.s28} (+15%伤)!`, player.hero.weaponColor, 16);
+      startPlayerSkill(SKILLS.ZY_28A, true); return;
+    }
+    if (checkMotionInput(['s', fwd, 'j'])) {
+      spawnText(player.x, player.z - 95, `手搓指令: ${player.hero.moveNames.s236} (+15%伤)!`, player.hero.weaponColor, 16);
+      startPlayerSkill(SKILLS.ZY_236A, true); return;
+    }
+    if (['IDLE', 'MOVE'].includes(player.state)) {
+      player.comboStep = 1; startPlayerSkill(SKILLS.ZY_5A1, false);
+    } else if (player.state === 'SKILL' && player.activeSkill) {
+      const canCancel = player.stateFrame >= player.activeSkill.cancel || (player.isMaxMode && player.hasHitSkill);
+      if (canCancel && player.comboStep >= 1 && player.comboStep < 4) {
+        player.comboStep++;
+        startPlayerSkill({ 2: SKILLS.ZY_5A2, 3: SKILLS.ZY_5A3, 4: SKILLS.ZY_5A4 }[player.comboStep], false);
+      }
+    }
+  }
+}
+
+function startPlayerSkill(skill, isManual) {
+  if (player.state === 'SKILL' && player.activeSkill) {
+    const canCancel = player.stateFrame >= player.activeSkill.cancel || (player.isMaxMode && player.hasHitSkill);
+    if (!canCancel && skill.id !== 'ZY_SUPER') return;
+  }
+  player.state = 'SKILL'; player.stateFrame = 0; player.activeSkill = skill;
+  player.isManualCast = isManual; player.hasHitSkill = false;
+  if (skill.jumpVy) player.vy = skill.jumpVy;
+}
+
+function useActiveArtifact() {
+  const art = player.artifacts[player.activeArtifactIdx];
+  if (art.charges <= 0) { spawnText(player.x, player.z - 70, `${art.name} 充能已耗尽!`, '#ef4444', 15); return; }
+  art.charges--;
+  triggerCutIn(`战术法宝 · ${art.name}!`, art.color, 18);
+
+  for (let i = mobs.length - 1; i >= 0; i--) {
+    mobs[i].hp = Math.max(0, mobs[i].hp - 220);
+    mobs[i].vy = 11;
+    checkMobDeath(mobs[i]);
+  }
+  homingMissiles.length = 0;
+
+  if (art.id === 'EMP') {
+    sfx.playLightningShock(true);
+    if (boss.active) {
+      spawnLightning(player.x, player.z - 40, boss.x, boss.z - 50, '#facc15');
+      if (boss.state === 'WINDUP' && (boss.currentMove?.id === 'P3_SKY_HALBERD' || boss.currentMove?.isThunderMatrix)) {
+        boss.shield = 0; boss.y = 0; boss.state = 'BROKEN'; boss.stateFrame = 0;
+        styleSystem.recordBigBonus(600, '⚡ EMP脉冲截击Boss大招', boss.x, boss.z);
+      } else damageBoss(140, 180, 'METAL', true, true, 14);
+    }
+  } else if (art.id === 'QINGGANG') {
+    sfx.playIceFreeze();
+    if (boss.active) {
+      damageBoss(220, 140, 'WATER', true, true, 14);
+      boss.state = 'FROZEN'; boss.stateFrame = 0;
+      styleSystem.recordBigBonus(400, '❄️ 青釭剑·极寒冰封90帧', boss.x, boss.z);
+    }
+  } else if (art.id === 'TAIPING') {
+    sfx.playLightningShock(true);
+    for (let i = 0; i < 5; i++) spawnLightning(150 + i * 160, 0, 150 + i * 160, 460, '#a855f7');
+    damageEnvironmentProps(player.x, player.z, 400, 'METAL');
+    if (boss.active) damageBoss(250, 140, 'METAL', true, true, 14);
+  }
+}
+
+// ============================================================================
+// 10. 主循环更新
+// ============================================================================
+function updateGame() {
+  if (shopState.isOpen) return;
+  game.frame++;
+
+  if (screenFlow.mode === 'CHAR_SELECT') {
+    if (--screenFlow.selectCountdownFrames <= 0) {
+      confirmHeroSelectionAndEnterMap();
+    }
+    return;
+  }
+
+  if (screenFlow.mode === 'METRO_MAP') {
+    if (screenFlow.mapProgress < 1) {
+      screenFlow.mapProgress = Math.min(1, screenFlow.mapProgress + 0.014);
+      if (screenFlow.mapProgress >= 1) {
+        screenFlow.mapReadyToStart = true;
+      }
+    }
+    return;
+  }
+
+  if (player.hp > 0 && (!boss.active || boss.hp > 0)) game.runTimerFrames++;
+  if (game.shake > 0) game.shake *= 0.85;
+
+  // 若正在播放 Y 键【双人合体奥义】90 帧全屏特写，冻结普通敌军行动并单独驱动合体演出
+  if (assistSystem.coopUlt.active) {
+    updateAssistAndCoopSystem();
+    updateParticles();
+    return;
+  }
+
+  if (game.superFreeze > 0) { game.superFreeze--; return; }
+
+  styleSystem.tick();
+  updateAssistAndCoopSystem();
+
+  if (campaign.stage === 1 && !campaign.shutterDoor.breached && !campaign.shutterDoor.lockedForever) {
+    if (--campaign.shutterDoor.timerFrames <= 0) {
+      campaign.shutterDoor.lockedForever = true;
+      spawnText(800, 260, '🔒 30秒已到! 电子音像店卷帘门永久焊死!', '#ef4444', 18);
+    }
+  }
+
+  if (campaign.stage === 2) {
+    updateStage2MaglevHazards();
+    updateHomingMissiles();
+  }
+
+  if (campaign.stage === 3 && --game.stormRainTimer <= 0) {
+    game.isRaining = !game.isRaining;
+    game.stormRainTimer = game.isRaining ? 540 : 480;
+    spawnText(480, 120, game.isRaining ? '🌧️ 水淹七军·倾盆雷暴开启 (全场导电!)' : '☁️ 暴雨暂歇', '#38bdf8', 20);
+  }
+
+  updateEnvironmentProps();
+  updatePlayer();
+  updateMobs();
+  if (boss.active) updateBoss();
+  updateParticles();
+
+  if (campaign.stage < 3 && mobs.length === 0 && !boss.active && !campaign.stageCleared) {
+    if (campaign.wave < campaign.maxWaves) {
+      campaign.wave++;
+      spawnText(480, 210, `🚨 第 ${campaign.wave}/${campaign.maxWaves} 波敌军支援抵达!`, '#f97316', 22);
+      spawnStageWave(campaign.stage, campaign.wave);
+    } else if (!campaign.bossSpawnedThisStage) {
+      campaign.bossSpawnedThisStage = true;
+      spawnBossEntity(campaign.stage === 1 ? 'ZHANG_JIAO' : 'XIAHOU_DUN');
+    } else {
+      campaign.stageCleared = true;
+      campaign.showGoArrow = true;
+      sfx.playMedalUnlock();
+      spawnText(480, 200, '✅ 区域肃清! 请向右走出屏幕边缘进入【地铁战术大地图】 GO! ➔', '#4ade80', 20);
+    }
+  }
+
+  if (campaign.showGoArrow && player.x >= 905) {
+    openMetroMapTransition(campaign.stage, campaign.stage + 1);
+  }
+}
+
+function updateStage2MaglevHazards() {
+  const beam = campaign.laserBeam;
+  if (beam.phase === 'IDLE') {
+    if (--beam.timer <= 0) {
+      beam.phase = 'WARNING';
+      beam.timer = 65;
+      spawnText(
+        520, 165,
+        boss.active
+          ? '⚠️ 车顶激光横梁预警! 快按[I / ↓↑+J]挑空夏侯惇让激光削他半管血!'
+          : '⚠️ 隧道限高激光预警! 按[S+K]滑铲躲避，或挑空敌人借刀秒杀!',
+        '#ef4444', 17
+      );
+    }
+  } else if (beam.phase === 'WARNING') {
+    if (--beam.timer <= 0) {
+      beam.phase = 'SWEEPING';
+      beam.x = 960;
+      beam.hitSet.clear();
+      sfx.playLaserSweep();
+    }
+  } else if (beam.phase === 'SWEEPING') {
+    beam.x -= beam.speedX;
+
+    if (!beam.hitSet.has('PLAYER') && Math.abs(player.x - beam.x) <= 28) {
+      beam.hitSet.add('PLAYER');
+      const isLowSliding = player.state === 'SKILL' && player.activeSkill?.isLowSlide;
+      const isInvuln = (player.state === 'DODGE' && player.stateFrame <= 12) || (player.state === 'SKILL' && player.stateFrame <= (player.activeSkill?.invuln || 0));
+      if (isLowSliding || isInvuln) {
+        styleSystem.recordBigBonus(320, '✨ 极限滑铲钻过车顶激光', player.x, player.z);
+      } else {
+        player.hp = Math.max(0, player.hp - 120);
+        player.state = 'HURT'; player.stateFrame = 0; game.shake = 12;
+        sfx.playHitImpact(true, false);
+        spawnText(player.x, player.z - 75, '💥 被车顶激光横梁撞飞 -120!', '#ef4444', 19);
+      }
+    }
+
+    for (let i = mobs.length - 1; i >= 0; i--) {
+      const m = mobs[i];
+      if (!beam.hitSet.has(m) && Math.abs(m.x - beam.x) <= 30) {
+        beam.hitSet.add(m);
+        if (m.y >= 28) {
+          m.hp = 0;
+          sfx.playExplosion();
+          styleSystem.recordBigBonus(550, `💀 借刀杀人·高空坠车秒杀 (${m.name})`, m.x, m.z);
+          mobs.splice(i, 1);
+        } else {
+          m.hp = Math.max(0, m.hp - 140);
+          m.vy = 9;
+          checkMobDeath(m);
+        }
+      }
+    }
+
+    if (boss.active && boss.hp > 0 && !beam.hitSet.has('BOSS') && Math.abs(boss.x - beam.x) <= 36) {
+      beam.hitSet.add('BOSS');
+      if (boss.y >= 22) {
+        const halfHpCut = Math.round(boss.maxHp * 0.50);
+        boss.hp = Math.max(0, boss.hp - halfHpCut);
+        boss.shield = 0;
+        boss.vy = 14;
+        boss.state = 'BROKEN';
+        boss.stateFrame = 0;
+        game.shake = 24;
+        sfx.playExplosion();
+        spawnParticles(boss.x, boss.z - 60, '#ef4444', 55, 13);
+        styleSystem.envSynergies++;
+        styleSystem.recordBigBonus(900, `🚄 车顶激光斩舰! 夏侯惇削掉半管血 (-${halfHpCut} HP)`, boss.x, boss.z);
+        triggerCutIn('借刀杀人 · 隧道激光横梁削掉夏侯惇 50% 生命值!', '#ef4444', 26);
+        tryUnlockMedal('MEDAL_XIAHOUDUN_LASER');
+        if (boss.hp <= 0) handleBossDefeated();
+      } else {
+        boss.hp = Math.max(1, boss.hp - 220);
+        boss.shield = Math.max(0, boss.shield - 90);
+        boss.flashWhite = 8;
+        sfx.playHitImpact(true, false);
+        spawnText(boss.x, boss.z - 85, '⚡ 激光横梁擦伤机车 (-220 HP / -90盾)! 挑空他可削半血!', '#fbbf24', 16);
+        if (boss.shield === 0 && boss.state !== 'BROKEN') {
+          boss.state = 'BROKEN'; boss.stateFrame = 0; boss.vy = 13;
+        }
+      }
+    }
+
+    if (beam.x < -40) {
+      beam.phase = 'IDLE';
+      beam.timer = boss.active ? 290 : 400;
+    }
+  }
+
+  if (campaign.brakeActiveFrames > 0) {
+    campaign.brakeActiveFrames--;
+    player.x = Math.max(45, player.x - 1.8);
+    mobs.forEach(m => { m.x = Math.max(55, m.x - (m.y > 0 ? 3.2 : 1.8)); });
+  } else if (--campaign.brakeTimer <= 0) {
+    campaign.brakeActiveFrames = 120;
+    campaign.brakeTimer = 520;
+    spawnText(480, 140, '🛑 磁悬浮急刹车! 产生120帧向左惯性 (将夏侯惇引向左侧电网可短路!)', '#38bdf8', 17);
+  }
+}
+
+function updateHomingMissiles() {
+  for (let i = homingMissiles.length - 1; i >= 0; i--) {
+    const ms = homingMissiles[i];
+    ms.life--;
+    if (ms.life <= 0) { homingMissiles.splice(i, 1); continue; }
+
+    if (ms.reflected && boss.active) {
+      const dx = boss.x - ms.x, dz = boss.z - ms.z;
+      const dist = Math.hypot(dx, dz) || 1;
+      ms.x += (dx / dist) * 11;
+      ms.z += (dz / dist) * 7;
+      if (dist <= 42) {
+        sfx.playExplosion();
+        spawnParticles(boss.x, boss.z - 40, '#f97316', 30, 9);
+        styleSystem.recordBigBonus(420, '🚀 以彼之道·反抽导弹炸盾', boss.x, boss.z);
+        damageBoss(320, 110, 'FIRE', true, true, 15);
+        homingMissiles.splice(i, 1);
+      }
+    } else {
+      const dx = player.x - ms.x, dz = player.z - ms.z;
+      const dist = Math.hypot(dx, dz) || 1;
+      ms.x += (dx / dist) * 5.2;
+      ms.z += (dz / dist) * 3.2;
+
+      if (dist <= 32) {
+        resolveBossHitPlayer({ name: '红莲跟踪导弹', dmg: 95, isGrab: false });
+        sfx.playExplosion();
+        spawnParticles(player.x, player.z - 35, '#f97316', 22, 7);
+        homingMissiles.splice(i, 1);
+      }
+    }
+  }
+}
+
+function updatePlayer() {
+  if (player.hp <= 0) return;
+  if (player.hitstop > 0) { player.hitstop--; return; }
+  if (player.isMaxMode && --player.maxTimer <= 0) player.isMaxMode = false;
+
+  if (player.state === 'DODGE' || player.isMaxMode || (player.state === 'SKILL' && player.activeSkill?.id !== 'ZY_5A1')) {
+    if (game.frame % 3 === 0) player.afterimages.push({ x: player.x, y: player.y, z: player.z, alpha: 0.55 });
+  }
+  for (let i = player.afterimages.length - 1; i >= 0; i--) {
+    if ((player.afterimages[i].alpha -= 0.05) <= 0) player.afterimages.splice(i, 1);
+  }
+
+  if (player.y > 0 || player.vy > 0) {
+    player.y += player.vy; player.vy -= 0.65;
+    if (player.y <= 0) { player.y = 0; player.vy = 0; }
+  }
+
+  player.stateFrame++;
+  if (player.state === 'IDLE' || player.state === 'MOVE') {
+    let vx = 0, vz = 0;
+    const baseSpd = player.hero.speed;
+    const spd = player.isMaxMode ? baseSpd * 1.25 : baseSpd;
+    if (keys['a']) { vx = -spd; player.facing = -1; }
+    if (keys['d']) { vx = spd;  player.facing = 1; }
+    if (keys['w']) vz = -spd * 0.7;
+    if (keys['s']) vz = spd * 0.7;
+    player.x = Math.max(40, Math.min(930, player.x + vx));
+    player.z = Math.max(Z_MIN, Math.min(Z_MAX, player.z + vz));
+    player.state = (vx !== 0 || vz !== 0) ? 'MOVE' : 'IDLE';
+  } else if (player.state === 'GUARD') {
+    player.guardFrames++;
+    if (!keys['l']) player.state = 'IDLE';
+  } else if (player.state === 'DODGE') {
+    player.x = Math.max(40, Math.min(930, player.x + player.facing * 9));
+    if (player.stateFrame >= 16) player.state = 'IDLE';
+  } else if (player.state === 'HURT') {
+    if (player.stateFrame >= 22) player.state = 'IDLE';
+  } else if (player.state === 'SKILL') {
+    const sk = player.activeSkill;
+    const f = player.stateFrame;
+    if (f <= sk.startup + sk.active) {
+      const inertiaMult = (campaign.stage === 2 && campaign.brakeActiveFrames > 0 && player.facing === -1) ? 1.8 : 1.0;
+      player.x = Math.max(40, Math.min(930, player.x + player.facing * (sk.moveX || 0) * 0.35 * inertiaMult));
+    }
+    if (f >= sk.startup && f < sk.startup + sk.active && !player.hasHitSkill) {
+      damageEnvironmentProps(player.x + player.facing * 60, player.z, sk.range, sk.elem);
+
+      for (const ms of homingMissiles) {
+        if (!ms.reflected && Math.hypot(ms.x - player.x, ms.z - player.z) <= sk.range + 20) {
+          ms.reflected = true;
+          sfx.playJustGuardParry();
+          spawnText(ms.x, ms.z - 50, '⚾ 挥枪反抽跟踪导弹!', '#fbbf24', 16);
+        }
+      }
+
+      if (campaign.stage === 1 && !campaign.shutterDoor.breached && Math.abs(player.x - campaign.shutterDoor.x) <= sk.range + 35) {
+        if (sk.elem === 'FIRE') {
+          damageShutterDoorWithFire(campaign.shutterDoor.x, campaign.shutterDoor.z, 80, sk.dmg);
+        } else {
+          spawnText(campaign.shutterDoor.x - 90, campaign.shutterDoor.z - 70, '🛡️ 防爆涂层: 按[Q]呼叫关羽火刀或引爆煤气罐破门!', '#f97316', 14);
+        }
+      }
+
+      let hitAny = false;
+      for (let i = mobs.length - 1; i >= 0; i--) {
+        const m = mobs[i];
+        const dx = (m.x - player.x) * player.facing;
+        const dz = Math.abs(m.z - player.z);
+        if (dx >= -25 && dx <= sk.range && dz <= 38) {
+          hitAny = true;
+          hitMobWithSkill(m, sk);
+        }
+      }
+
+      if (boss.active && boss.hp > 0) {
+        const dx = (boss.x - player.x) * player.facing;
+        const dz = Math.abs(boss.z - player.z);
+        if (dx >= -25 && dx <= sk.range && dz <= 38) {
+          hitAny = true;
+          damageBoss(sk.dmg, sk.shield, sk.elem, player.isManualCast, sk.launch > 0, sk.launch);
+        }
+      }
+
+      if (hitAny) {
+        player.hasHitSkill = true;
+        player.hitstop = sk.hitstop;
+        const hasVamp = CYBER_CHIPS.find(c => c.id === 'CHIP_VAMPIRIC_NANO').installed;
+        player.rage = Math.min(player.maxRage, player.rage + 16 + (hasVamp ? 10 : 0));
+        if (hasVamp) player.hp = Math.min(player.maxHp, player.hp + 18);
+      }
+    }
+    if (f >= sk.startup + sk.active + sk.recovery) { player.state = 'IDLE'; player.activeSkill = null; }
+  }
+}
+
+function hitMobWithSkill(m, sk) {
+  const dmg = Math.round(sk.dmg * (player.isManualCast ? 1.15 : 1.0));
+  m.hp = Math.max(0, m.hp - dmg);
+  m.flashWhite = 5;
+  m.hitstop = sk.hitstop;
+  m.state = 'HURT'; m.stateFrame = 0;
+
+  const knockMult = player.hero.id === 'ZHANG_FEI' ? 1.55 : 1.0;
+  m.x = Math.max(50, Math.min(910, m.x + player.facing * (sk.launch > 0 ? 42 : 18) * knockMult));
+  if (sk.launch > 0) m.vy = sk.launch;
+
+  sfx.playHitImpact(sk.dmg >= 80, false);
+  spawnParticles(m.x, m.z - 40 - m.y, '#ef4444', 10, 5);
+  spawnText(m.x, m.z - 65 - m.y, `-${dmg}`, '#fff', 17);
+  styleSystem.recordHit(sk.id, dmg, player.isManualCast, false);
+
+  if (campaign.stage === 2 && m.x <= campaign.electricGateX + 25) {
+    const elecDmg = Math.round(m.maxHp * 0.45);
+    m.hp = Math.max(0, m.hp - elecDmg);
+    sfx.playLightningShock(true);
+    spawnLightning(campaign.electricGateX, Z_MIN, m.x, m.z - 30, '#38bdf8');
+    styleSystem.recordBigBonus(380, '⚡ 高压电网门处决 (-45% HP)', m.x, m.z);
+  }
+  checkMobDeath(m);
+}
+
+function checkMobDeath(m) {
+  if (m.hp > 0) return;
+  const idx = mobs.indexOf(m);
+  if (idx !== -1) mobs.splice(idx, 1);
+
+  if (m.type === 'ARSONIST') {
+    sfx.playExplosion();
+    game.shake = 14;
+    spawnParticles(m.x, m.z - 25, '#f97316', 35, 9);
+    spawnText(m.x, m.z - 75, '🔥 纵火狂燃油箱殉爆!', '#f97316', 18);
+    if (campaign.stage === 1) damageShutterDoorWithFire(m.x, m.z, 165, 110);
+  }
+}
+
+function damageShutterDoorWithFire(expX, expZ, radius, fireDmg) {
+  const door = campaign.shutterDoor;
+  if (door.breached || door.lockedForever) return;
+  if (Math.hypot(door.x - expX, door.z - expZ) <= radius + 40) {
+    door.hp = Math.max(0, door.hp - fireDmg);
+    spawnText(door.x - 70, door.z - 90, `🔥 高温熔门 -${fireDmg} HP!`, '#fbbf24', 19);
+    if (door.hp <= 0) {
+      door.breached = true;
+      careerSaveData.secretSwordFound = true;
+      player.artifacts[0].charges += 5;
+      styleSystem.recordBigBonus(800, '🎉 隐藏密室开启: 夺取神兵【极寒·青釭剑】', door.x - 100, door.z);
+      triggerCutIn('隐藏密室开启 · 获得神兵【高周波极寒·青釭剑】!', '#38bdf8', 30);
+      tryUnlockMedal('MEDAL_SECRET_SWORD');
+      saveGameToLocalStorage();
+    }
+  }
+}
+
+function updateMobs() {
+  for (let i = mobs.length - 1; i >= 0; i--) {
+    const m = mobs[i];
+    if (m.flashWhite > 0) m.flashWhite--;
+    if (m.hitstop > 0) { m.hitstop--; continue; }
+
+    if (m.y > 0 || m.vy > 0) {
+      m.y += m.vy; m.vy -= 0.55;
+      if (m.y <= 0) { m.y = 0; m.vy = 0; }
+    }
+
+    m.stateFrame++;
+    m.facing = player.x >= m.x ? 1 : -1;
+
+    if (m.state === 'HURT') {
+      if (m.stateFrame >= 24 && m.y === 0) { m.state = 'APPROACH'; m.stateFrame = 0; }
+    } else if (m.state === 'APPROACH') {
+      const dx = player.x - m.x, dz = player.z - m.z;
+      if (Math.abs(dx) > 75) m.x += Math.sign(dx) * 2.1;
+      if (Math.abs(dz) > 10) m.z += Math.sign(dz) * 1.4;
+      if (Math.abs(dx) <= 80 && Math.abs(dz) <= 22 && m.stateFrame >= 25) {
+        m.state = 'WINDUP'; m.stateFrame = 0;
+      }
+    } else if (m.state === 'WINDUP') {
+      if (m.stateFrame === 22) {
+        if (Math.abs(player.x - m.x) <= 85 && Math.abs(player.z - m.z) <= 28) {
+          resolveBossHitPlayer({ name: m.name, dmg: 55, isGrab: false });
+        }
+      }
+      if (m.stateFrame >= 38) { m.state = 'APPROACH'; m.stateFrame = 0; }
+    }
+  }
+}
+
+function updateEnvironmentProps() {
+  boss.isWet = (campaign.stage === 3 && game.isRaining);
+  for (const p of stageProps) {
+    if (p.state === 'DESTROYED') continue;
+    if (p.id === 'NITROGEN' && p.state === 'INTACT' && boss.active && boss.state === 'ACTIVE' && boss.currentMove?.id === 'P1_CHARGE') {
+      if (Math.hypot(boss.x - p.x, boss.z - p.z) <= 85) {
+        p.state = 'ACTIVE_HAZARD'; p.timer = 360;
+        boss.state = 'FROZEN'; boss.stateFrame = 0;
+        boss.shield = Math.max(0, boss.shield - 150);
+        game.shake = 14;
+        sfx.playIceFreeze();
+        spawnParticles(p.x, p.z - 30, '#38bdf8', 35, 9);
+        styleSystem.envSynergies++;
+        styleSystem.recordBigBonus(500, '❄️ 智破赤兔·液氮塔冰封90帧', boss.x, boss.z);
+      }
+    }
+    if (p.state === 'COUNTDOWN' && --p.timer <= 0) {
+      p.state = 'DESTROYED'; game.shake = 18;
+      sfx.playExplosion();
+      spawnParticles(p.x, p.z - 20, '#f97316', 45, 11);
+      spawnText(p.x, p.z - 80, '💥 煤气罐烈焰爆破!', '#f97316', 20);
+      if (campaign.stage === 1) damageShutterDoorWithFire(p.x, p.z, p.radius, 120);
+      mobs.forEach(m => {
+        if (Math.hypot(m.x - p.x, m.z - p.z) <= p.radius) {
+          m.hp = Math.max(0, m.hp - 260);
+          checkMobDeath(m);
+        }
+      });
+      if (boss.active && Math.hypot(boss.x - p.x, boss.z - p.z) <= p.radius) {
+        styleSystem.envSynergies++;
+        styleSystem.recordBigBonus(450, '🔥 煤气罐烈焰重创Boss', boss.x, boss.z);
+        damageBoss(320, 180, 'FIRE', true, true, 12);
+      }
+    }
+    if (p.state === 'ACTIVE_HAZARD') {
+      if (p.id === 'HYDRANT' && boss.active && Math.hypot(boss.x - p.x, boss.z - p.z) <= p.radius) {
+        boss.isWet = true;
+      }
+      if (--p.timer <= 0) p.state = 'DESTROYED';
+    }
+  }
+}
+
+function damageEnvironmentProps(atkX, atkZ, range, elem) {
+  for (const p of stageProps) {
+    if (p.state === 'DESTROYED') continue;
+    if (Math.hypot(p.x - atkX, p.z - atkZ) <= range + 35) {
+      if (p.state === 'INTACT') {
+        p.hp -= 30;
+        sfx.playHitImpact(false, false);
+        spawnParticles(p.x, p.z - 20, '#fff', 8, 4);
+        if (p.id === 'GASTANK' && p.hp <= 0) {
+          p.state = 'COUNTDOWN'; p.timer = 75;
+          spawnText(p.x, p.z - 60, '⚠️ 煤气罐即将剧烈爆炸!', '#f97316', 16);
+        } else if (p.hp <= 0) {
+          p.state = 'ACTIVE_HAZARD'; p.timer = 540;
+          spawnText(p.x, p.z - 60, p.id === 'HYDRANT' ? '💦 消防栓破裂: 高压导电水滩形成!' : '❄️ 液氮泄露!', '#38bdf8', 16);
+        }
+      } else if (p.state === 'ACTIVE_HAZARD' && p.id === 'HYDRANT' && elem === 'METAL' && boss.active && boss.isWet) {
+        sfx.playLightningShock(true);
+        spawnLightning(p.x, p.z, boss.x, boss.z - 40, '#38bdf8');
+        styleSystem.envSynergies++;
+        styleSystem.recordBigBonus(380, '⚡ 水雷激荡·感电连锁', boss.x, boss.z);
+      }
+    }
+  }
+}
+
+function damageBoss(baseDmg, baseShieldBreak, elem, isManual, canLaunch, launchVy = 14) {
+  if (!boss.active || boss.state === 'WAKEUP_BURST' || boss.hp <= 0) return;
+  let dmgMult = isManual ? 1.15 : 1.0, shieldMult = 1.0;
+
+  if (elem === 'METAL' && boss.elem === 'WOOD')  { dmgMult *= 1.5; shieldMult *= 2.0; }
+  if (elem === 'FIRE'  && boss.elem === 'METAL') { dmgMult *= 1.5; shieldMult *= 2.0; }
+  if (elem === 'WATER' && boss.elem === 'FIRE')  { dmgMult *= 1.5; shieldMult *= 2.0; }
+
+  if (elem === 'METAL' && boss.isWet) {
+    dmgMult *= 1.35; shieldMult *= 1.5;
+    sfx.playLightningShock(false);
+    spawnLightning(boss.x, boss.z - 90, boss.x, boss.z, '#38bdf8');
+  } else if (elem === 'METAL') {
+    sfx.playLightningShock(false);
+    spawnLightning(player.x + player.facing * 40, player.z - 35, boss.x, boss.z - 45, '#a855f7');
+  }
+
+  const isPunish = (boss.state === 'VULNERABLE' || boss.state === 'FROZEN');
+  if (isPunish) {
+    dmgMult *= 1.3; shieldMult *= 1.6;
+    spawnText(boss.x, boss.z - 105, '🎯 抓住破绽 PUNISH COUNTER!', '#fbbf24', 18);
+  }
+
+  sfx.playHitImpact(baseDmg >= 80, isPunish);
+
+  const finalDmg = Math.round(baseDmg * dmgMult);
+  const finalShield = Math.round(baseShieldBreak * shieldMult);
+  boss.hp = Math.max(0, boss.hp - finalDmg);
+  boss.flashWhite = 6;
+  spawnParticles(boss.x, boss.z - 45 - boss.y, player.hero.weaponColor, 14, 6);
+  spawnText(boss.x + (Math.random() * 40 - 20), boss.z - 65 - boss.y, `-${finalDmg}`, isPunish ? '#fbbf24' : '#fff', isPunish ? 22 : 17);
+
+  styleSystem.recordHit(player.activeSkill?.id || 'ART', finalDmg, isManual, isPunish);
+
+  if (boss.bossType === 'XIAHOU_DUN' && canLaunch && isPunish) {
+    boss.vy = launchVy;
+  }
+
+  if (boss.shield > 0) {
+    boss.shield = Math.max(0, boss.shield - finalShield);
+    if (boss.shield === 0) {
+      boss.state = 'BROKEN'; boss.stateFrame = 0; boss.vy = 14; game.shake = 15;
+      sfx.playExplosion();
+      spawnText(boss.x, boss.z - 120, '💥 护盾击碎 SHIELD BREAK! (可尽情挑空连段!)', '#38bdf8', 22);
+    }
+  } else if (boss.state === 'BROKEN' && canLaunch) {
+    boss.vy = launchVy;
+  }
+
+  if (boss.hp <= 0) {
+    handleBossDefeated();
+  }
+}
+
+function handleBossDefeated() {
+  sfx.playExplosion();
+  game.shake = 20;
+  spawnParticles(boss.x, boss.z - 45, '#fbbf24', 50, 12);
+
+  if (boss.bossType === 'ZHANG_JIAO') {
+    boss.active = false;
+    mobs.length = 0;
+    campaign.stageCleared = true;
+    campaign.showGoArrow = true;
+    careerSaveData.wallet += 350;
+    saveGameToLocalStorage();
+    triggerCutIn('黄巾黑客教主·赛博张角 讨伐成功! (+350芯片)', '#4ade80', 26);
+    spawnText(480, 200, '✅ 赛博张角已击破! 请向右走出夜市进入【地铁战术大地图】 GO! ➔', '#4ade80', 20);
+  }
+  else if (boss.bossType === 'XIAHOU_DUN') {
+    boss.active = false;
+    homingMissiles.length = 0;
+    campaign.stageCleared = true;
+    campaign.showGoArrow = true;
+    careerSaveData.wallet += 450;
+    saveGameToLocalStorage();
+    triggerCutIn('独眼重装机车·夏侯惇 讨伐成功! (+450芯片)', '#38bdf8', 26);
+    spawnText(480, 200, '✅ 重装机车夏侯惇已击破! 请向右冲向车头进入【地铁战术大地图】 GO! ➔', '#4ade80', 19);
+  }
+  else {
+    setTimeout(() => openCyberShopModal(true), 550);
+  }
+}
+
+function updateBoss() {
+  if (boss.hp <= 0) return;
+  if (boss.flashWhite > 0) boss.flashWhite--;
+  if (boss.hitstop > 0) { boss.hitstop--; return; }
+
+  if (boss.y > 0 || boss.vy > 0) {
+    boss.y += boss.vy; boss.vy -= 0.55;
+    if (boss.y <= 0) { boss.y = 0; boss.vy = 0; }
+  }
+
+  const hpRatio = boss.hp / boss.maxHp;
+
+  if (boss.bossType === 'LU_BU') {
+    if (hpRatio <= 0.30 && boss.phase < 3) {
+      boss.phase = 3; boss.elem = 'FIRE'; boss.state = 'WAKEUP_BURST'; boss.stateFrame = 0;
+      triggerCutIn('P3 过载魔神态 · 神鬼乱舞解锁!', '#ef4444', 28);
+    } else if (hpRatio <= 0.65 && boss.phase < 2) {
+      boss.phase = 2;
+      triggerCutIn('P2 步战无双态 · 霸王擒拿解锁!', '#f97316', 22);
+    }
+  } else if (boss.bossType === 'ZHANG_JIAO' && hpRatio <= 0.55 && boss.phase < 2) {
+    boss.phase = 2; boss.state = 'WAKEUP_BURST'; boss.stateFrame = 0;
+    triggerCutIn('赛博张角 P2 · 黄天当立·五雷轰顶矩阵启动!', '#eab308', 24);
+  } else if (boss.bossType === 'XIAHOU_DUN' && hpRatio <= 0.55 && boss.phase < 2) {
+    boss.phase = 2; boss.state = 'WAKEUP_BURST'; boss.stateFrame = 0;
+    triggerCutIn('独眼夏侯惇 P2 · 拔矢啖睛·红莲导弹全弹发射!', '#f97316', 24);
+  }
+
+  const speedScale = game.isNGPlus ? 2.0 : 1.0;
+  boss.stateFrame += speedScale;
+
+  switch (boss.state) {
+    case 'IDLE': if (boss.stateFrame >= 28) { boss.state = 'CHASE'; boss.stateFrame = 0; } break;
+    case 'CHASE':
+      boss.facing = player.x >= boss.x ? 1 : -1;
+      const dx = player.x - boss.x, dz = player.z - boss.z;
+      const moveSpd = game.isNGPlus ? 4.8 : (boss.bossType === 'XIAHOU_DUN' ? 3.8 : 2.9);
+      if (Math.abs(dx) > 110) boss.x += Math.sign(dx) * moveSpd;
+      if (Math.abs(dz) > 10)  boss.z += Math.sign(dz) * (moveSpd * 0.65);
+
+      if (boss.stateFrame >= 34 || (Math.abs(dx) <= 125 && Math.abs(dz) <= 26)) {
+        selectNextBossMove();
+      }
+      break;
+
+    case 'WINDUP':
+      if (boss.currentMove?.isThunderMatrix) {
+        boss.y = Math.min(55, boss.y + 2.2);
+      }
+      if (boss.stateFrame >= boss.currentMove.startup) {
+        boss.state = 'ACTIVE';
+        boss.stateFrame = 0;
+      }
+      break;
+
+    case 'ACTIVE':
+      const mv = boss.currentMove;
+      boss.x = Math.max(55, Math.min(905, boss.x + boss.facing * mv.speedX * (game.isNGPlus ? 1.35 : 1.0)));
+
+      if (boss.bossType === 'XIAHOU_DUN' && boss.x <= campaign.electricGateX + 22) {
+        boss.hp = Math.max(1, boss.hp - 450);
+        boss.shield = Math.max(0, boss.shield - 130);
+        boss.state = 'VULNERABLE'; boss.stateFrame = 0;
+        sfx.playLightningShock(true);
+        spawnLightning(campaign.electricGateX, Z_MIN, boss.x, boss.z - 40, '#38bdf8');
+        styleSystem.envSynergies++;
+        styleSystem.recordBigBonus(480, '⚡ 夏侯惇撞击车尾电网短路 (-450 HP)', boss.x, boss.z);
+        if (boss.shield === 0) { boss.state = 'BROKEN'; boss.vy = 13; }
+        return;
+      }
+
+      if (!boss.hasDealtHit && boss.stateFrame >= 2) {
+        boss.hasDealtHit = true;
+
+        if (mv.isSummon) {
+          if (mobs.length < 3) {
+            const holoMob = createMob('全息黄巾力士(张角幻影)', 'PUNK', boss.x + boss.facing * 65, boss.z, 160);
+            mobs.push(holoMob);
+            spawnParticles(holoMob.x, holoMob.z - 35, '#4ade80', 22, 6);
+            spawnText(boss.x, boss.z - 95, '💻 太平木马: 召唤全息黄巾力士!', '#4ade80', 17);
+          }
+        }
+        else if (mv.isThunderMatrix) {
+          sfx.playLightningShock(true);
+          for (let i = 0; i < 6; i++) spawnLightning(120 + i * 145, 0, 120 + i * 145, 480, '#fde047');
+
+          if (boss.isWet) {
+            boss.hp = Math.max(1, boss.hp - 480);
+            boss.shield = 0; boss.y = 0; boss.vy = 14;
+            boss.state = 'BROKEN'; boss.stateFrame = 0;
+            game.shake = 20; sfx.playExplosion();
+            spawnParticles(boss.x, boss.z - 40, '#38bdf8', 45, 11);
+            styleSystem.envSynergies++;
+            styleSystem.recordBigBonus(750, '⚡ 积水反噬五雷轰顶·张角炸盾坠落', boss.x, boss.z);
+            tryUnlockMedal('MEDAL_ZHANGJIAO_BACK');
+            return;
+          }
+          if (Math.abs(player.x - boss.x) <= mv.range && Math.abs(player.z - boss.z) <= 55) {
+            resolveBossHitPlayer(mv);
+          }
+        }
+        else if (mv.isMissileBarrage) {
+          sfx.playExplosion();
+          homingMissiles.push(
+            { x: boss.x + boss.facing * 30, z: boss.z - 25, life: 240, reflected: false },
+            { x: boss.x + boss.facing * 30, z: boss.z + 25, life: 240, reflected: false }
+          );
+          spawnText(boss.x, boss.z - 95, '🚀 红莲跟踪导弹发射 (挥枪J键可反抽回去)!', '#f97316', 16);
+        }
+        else if (Math.abs(player.x - boss.x) <= mv.range && Math.abs(player.z - boss.z) <= 38) {
+          resolveBossHitPlayer(mv);
+        }
+      }
+
+      if (boss.stateFrame >= mv.active) {
+        boss.state = 'VULNERABLE';
+        boss.stateFrame = 0;
+      }
+      break;
+
+    case 'VULNERABLE':
+      if (boss.stateFrame >= boss.currentMove.recovery) {
+        boss.state = 'IDLE'; boss.stateFrame = 0;
+      }
+      break;
+
+    case 'FROZEN':
+      if (boss.stateFrame >= 90) { boss.state = 'IDLE'; boss.stateFrame = 0; }
+      break;
+
+    case 'BROKEN':
+      if (boss.stateFrame >= 240) {
+        boss.state = 'WAKEUP_BURST'; boss.stateFrame = 0; boss.shield = boss.maxShield; boss.y = 0;
+        spawnParticles(boss.x, boss.z - 40, '#fbbf24', 32, 9);
+        spawnText(boss.x, boss.z - 95, `⚡ ${boss.name} 起身防反 · 护盾重铸!`, '#fbbf24', 18);
+      }
+      break;
+
+    case 'WAKEUP_BURST':
+      if (boss.stateFrame >= 18) { boss.state = 'IDLE'; boss.stateFrame = 0; }
+      break;
+  }
+}
+
+function selectNextBossMove() {
+  boss.facing = player.x >= boss.x ? 1 : -1;
+  const dist = Math.abs(player.x - boss.x);
+
+  if (boss.bossType === 'ZHANG_JIAO') {
+    const r = Math.random();
+    boss.currentMove = r < 0.42 ? ZHANGJIAO_MOVES.THUNDER_MATRIX
+                     : (r < 0.72 && mobs.length < 2) ? ZHANGJIAO_MOVES.SUMMON_TURBAN
+                     : ZHANGJIAO_MOVES.CABLE_WHIP;
+  }
+  else if (boss.bossType === 'XIAHOU_DUN') {
+    const r = Math.random();
+    boss.currentMove = dist > 190 ? XIAHOUDUN_MOVES.BIKE_DRIFT_RUSH
+                     : (r < 0.48 ? XIAHOUDUN_MOVES.HOMING_MISSILE_BARRAGE : XIAHOUDUN_MOVES.EXHAUST_FLAME_SPIN);
+  }
+  else {
+    boss.currentMove = boss.phase === 1 ? (dist > 180 ? LUBU_MOVES.P1_CHARGE : LUBU_MOVES.COMBO_SMASH)
+                     : boss.phase === 2 ? (dist < 105 ? LUBU_MOVES.P2_GRAB : LUBU_MOVES.COMBO_SMASH)
+                     : (Math.random() < 0.55 ? LUBU_MOVES.P3_SKY_HALBERD : LUBU_MOVES.P1_CHARGE);
+  }
+
+  boss.state = 'WINDUP';
+  boss.stateFrame = 0;
+  boss.hasDealtHit = false;
+}
+
+function resolveBossHitPlayer(mv) {
+  if (assistSystem.coopUlt.active) return; // 双人合体奥义期间全程绝对无敌！
+  const isSkillInvuln = player.state === 'SKILL' && player.stateFrame <= (player.activeSkill?.invuln || 0);
+  const isDodgeInvuln = player.state === 'DODGE' && player.stateFrame <= 12;
+  if (isSkillInvuln || isDodgeInvuln) {
+    spawnText(player.x, player.z - 80, '✨ 无敌帧完美闪避!', '#38bdf8', 16); return;
+  }
+  if (mv.isGrab && player.y > 10) {
+    styleSystem.recordBigBonus(350, '👟 跃起躲投·抓空反击', player.x, player.z); return;
+  }
+  if (player.state === 'GUARD' && !mv.isGrab) {
+    if (player.guardFrames <= 7) {
+      player.rage = Math.min(player.maxRage, player.rage + 65);
+      player.hitstop = 10; boss.hitstop = 18;
+      sfx.playJustGuardParry();
+      styleSystem.justGuards++;
+      styleSystem.recordBigBonus(420, '🛡️ 精准格挡 JUST GUARD!', player.x, player.z);
+      spawnParticles(player.x + player.facing * 25, player.z - 40, '#38bdf8', 25, 8);
+      return;
+    } else {
+      const chipDmg = Math.round(mv.dmg * 0.15);
+      player.hp = Math.max(0, player.hp - chipDmg);
+      sfx.playHitImpact(false, false);
+      spawnText(player.x, player.z - 60, `格挡 -${chipDmg}`, '#94a3b8', 15);
+      return;
+    }
+  }
+  player.hp = Math.max(0, player.hp - mv.dmg);
+  player.state = 'HURT'; player.stateFrame = 0; game.shake = 10;
+  sfx.playHitImpact(true, false);
+  styleSystem.onTakeDamage();
+  spawnParticles(player.x, player.z - 40, '#ef4444', 18, 7);
+  spawnText(player.x, player.z - 75, `受创 -${mv.dmg}!`, '#ef4444', 20);
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.25;
+    if (--p.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const t = floatingTexts[i]; t.y += t.vy;
+    if (--t.life <= 0) floatingTexts.splice(i, 1);
+  }
+  for (let i = lightnings.length - 1; i >= 0; i--) {
+    if (--lightnings[i].life <= 0) lightnings.splice(i, 1);
+  }
+}
+
+// ============================================================================
+// 11. 视觉渲染总控 (含 Q 键援护武将绘制与 Y 键 90帧双人合体奥义全屏特写动画)
+// ============================================================================
+function renderGame() {
+  if (screenFlow.mode === 'CHAR_SELECT') {
+    renderCharacterSelectScreen();
+    return;
+  }
+  if (screenFlow.mode === 'METRO_MAP') {
+    renderMetroMapScreen();
+    return;
+  }
+
+  ctx.save();
+  if (game.shake > 0.5) ctx.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
+
+  drawStageBackground();
+
+  const renderList = [
+    ...stageProps.map(p => ({ type: 'PROP', z: p.z, obj: p })),
+    ...mobs.map(m => ({ type: 'MOB', z: m.z, obj: m })),
+    ...homingMissiles.map(ms => ({ type: 'MISSILE', z: ms.z, obj: ms })),
+    { type: 'PLAYER', z: player.z }
+  ];
+  if (assistSystem.activeStriker) {
+    renderList.push({ type: 'ASSIST', z: assistSystem.activeStriker.z, obj: assistSystem.activeStriker });
+  }
+  if (boss.active) renderList.push({ type: 'BOSS', z: boss.z });
+  renderList.sort((a, b) => a.z - b.z);
+
+  for (const item of renderList) {
+    if (item.type === 'PROP') drawProp(item.obj);
+    else if (item.type === 'MOB') drawMob(item.obj);
+    else if (item.type === 'MISSILE') drawMissile(item.obj);
+    else if (item.type === 'PLAYER') drawPlayer();
+    else if (item.type === 'ASSIST') drawAssistStriker(item.obj);
+    else if (item.type === 'BOSS') drawBoss();
+  }
+
+  if (campaign.stage === 2) drawStage2LaserBeamOverlay();
+
+  for (const l of lightnings) {
+    ctx.strokeStyle = l.color; ctx.lineWidth = 3; ctx.beginPath();
+    ctx.moveTo(l.x1, l.y1); ctx.lineTo((l.x1 + l.x2) / 2 + (Math.random() - 0.5) * 40, (l.y1 + l.y2) / 2); ctx.lineTo(l.x2, l.y2); ctx.stroke();
+  }
+  for (const p of particles) { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); }
+  for (const t of floatingTexts) { ctx.font = `bold ${t.size}px "Microsoft YaHei"`; ctx.fillStyle = t.color; ctx.fillText(t.text, t.x - 45, t.y); }
+
+  if (campaign.showGoArrow && Math.floor(game.frame / 12) % 2 === 0) {
+    ctx.fillStyle = '#4ade80';
+    ctx.font = 'italic bold 42px Impact, "Microsoft YaHei"';
+    ctx.fillText('GO! ➔ ➔', 775, 240);
+  }
+
+  drawHUD();
+
+  // 渲染 Y 键【双人合体奥义】90 帧全屏双立绘切入与双龙交叉激光演出
+  if (assistSystem.coopUlt.active) {
+    drawCoopUltimateCinematic();
+  } else if (game.superFreeze > 0) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)'; ctx.fillRect(0, 0, 960, 540);
+    ctx.fillStyle = game.cutInColor; ctx.fillRect(0, 210, 960, 70);
+    ctx.fillStyle = '#0f172a'; ctx.font = 'italic bold 25px "Microsoft YaHei"';
+    ctx.fillText(`⚡ ${game.cutInText} ⚡`, 100, 255);
+  }
+
+  if (player.hp <= 0) {
+    ctx.fillStyle = 'rgba(5, 8, 20, 0.85)'; ctx.fillRect(0, 0, 960, 540);
+    ctx.fillStyle = '#ef4444'; ctx.font = 'bold 40px "Microsoft YaHei"';
+    ctx.fillText('💔 战役受挫 · CONTINUE? (按 [5] 或 [C] 投币原地复活!)', 65, 235);
+    ctx.fillStyle = '#38bdf8'; ctx.font = '20px "Microsoft YaHei"';
+    ctx.fillText('或按 [ R ] 键返回街机选人界面切换其他蜀汉武将，按 [ Tab ] 强化赛博芯片', 140, 305);
+  }
+  ctx.restore();
+}
+
+// 绘制 Q 键降临战场的待命蜀汉援护武将与震地光环
+function drawAssistStriker(st) {
+  const hCfg = st.hero;
+  const sy = st.z - st.y;
+
+  // 援护冲击波光环
+  if (st.y === 0) {
+    ctx.strokeStyle = hCfg.weaponColor;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(st.x, st.z, (55 - st.timer) * 3.5, (55 - st.timer) * 1.3, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = hCfg.bodyColor;
+  ctx.fillRect(st.x - 16, sy - 68, 32, 68);
+  ctx.fillStyle = hCfg.vestColor;
+  ctx.fillRect(st.x - 16, sy - 50, 32, 22);
+
+  ctx.strokeStyle = hCfg.weaponColor;
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.moveTo(st.x - st.facing * 20, sy - 38);
+  ctx.lineTo(st.x + st.facing * 125, sy - 20);
+  ctx.stroke();
+
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'bold 13px "Microsoft YaHei"';
+  ctx.fillText(`★援护: ${hCfg.name}`, st.x - 36, sy - 76);
+}
+
+// 绘制 Y 键【双人合体奥义】90 帧全屏特写动画 (Dual Cut-in + 交叉双龙粒子光束)
+function drawCoopUltimateCinematic() {
+  const cu = assistSystem.coopUlt;
+  const f = cu.frame;
+  const h1 = player.hero;
+  const h2 = cu.partnerHero;
+
+  // 1. 全屏暗化背景与高速流光线条
+  ctx.fillStyle = 'rgba(4, 6, 18, 0.78)';
+  ctx.fillRect(0, 0, 960, 540);
+
+  // 2. 第一阶段 (1~42帧)：上下双人立绘分镜对向切入 (Dual Split-Screen Cut-in)
+  const slideOffset = Math.min(1, f / 12);
+  const topBarX = -960 + 960 * slideOffset;
+  const botBarX = 960 - 960 * slideOffset;
+
+  // 上方主控武将分镜条
+  ctx.fillStyle = h1.vestColor;
+  ctx.fillRect(topBarX, 85, 960, 95);
+  ctx.strokeStyle = h1.weaponColor;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(topBarX, 85, 960, 95);
+
+  ctx.fillStyle = h1.bodyColor;
+  ctx.fillRect(topBarX + 85, 98, 68, 68);
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'italic bold 28px "Microsoft YaHei"';
+  ctx.fillText(`⚡ 【主将】${h1.name} —— ${h1.moveNames.super}`, topBarX + 180, 142);
+
+  // 下方援护武将分镜条
+  ctx.fillStyle = h2.vestColor;
+  ctx.fillRect(botBarX, 340, 960, 95);
+  ctx.strokeStyle = h2.weaponColor;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(botBarX, 340, 960, 95);
+
+  ctx.fillStyle = h2.bodyColor;
+  ctx.fillRect(botBarX + 800, 353, 68, 68);
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'italic bold 28px "Microsoft YaHei"';
+  ctx.fillText(`🔥 【副将】${h2.name} —— ${h2.moveNames.super}`, botBarX + 140, 397);
+
+  // 中央金色合体奥义大字标题
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'italic bold 38px "Microsoft YaHei"';
+  ctx.fillText(`🐉 双人合体奥义 · 【${cu.title}】 🐉`, 105, 255);
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = 'bold 16px "Microsoft YaHei"';
+  ctx.fillText(cu.subTitle, 250, 290);
+
+  // 3. 第二阶段 (40~90帧)：全屏交叉双色螺旋粒子洪流轰击！
+  if (f >= 40) {
+    const beamHeight = Math.sin(((f - 40) / 50) * Math.PI) * 150;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // 主将色巨型光束
+    ctx.fillStyle = h1.weaponColor;
+    ctx.fillRect(0, 370 - beamHeight * 0.5, 960, beamHeight * 0.6);
+
+    // 副将色巨型光束
+    ctx.fillStyle = h2.weaponColor;
+    ctx.fillRect(0, 390 - beamHeight * 0.4, 960, beamHeight * 0.6);
+
+    // 中心炽白高能核心
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 380 - beamHeight * 0.2, 960, beamHeight * 0.35);
+
+    ctx.restore();
+  }
+}
+
+function renderCharacterSelectScreen() {
+  const bg = ctx.createLinearGradient(0, 0, 0, 540);
+  bg.addColorStop(0, '#040711');
+  bg.addColorStop(0.5, '#17153b');
+  bg.addColorStop(1, '#090d16');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 960, 540);
+
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.10)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < 960; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 540); ctx.stroke(); }
+  for (let y = 0; y < 540; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(960, y); ctx.stroke(); }
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'italic bold 30px "Microsoft YaHei"';
+  ctx.fillText('🕹️ 《三国：都市战纪》特勤武将出击选择 · SELECT YOUR HERO', 28, 52);
+
+  const secLeft = Math.ceil(screenFlow.selectCountdownFrames / 60);
+  ctx.fillStyle = secLeft <= 5 ? '#ef4444' : '#fbbf24';
+  ctx.font = 'italic bold 36px Impact';
+  ctx.fillText(`TIME: ${String(secLeft).padStart(2, '0')}`, 605, 55);
+
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(745, 18, 190, 46);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(745, 18, 190, 46);
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'bold 17px monospace, "Microsoft YaHei"';
+  ctx.fillText(`🪙 CREDITS: ${String(screenFlow.credits).padStart(2, '0')} [按5投币]`, 754, 47);
+
+  HERO_ROSTER.forEach((h, idx) => {
+    const isSel = idx === screenFlow.selectedHeroIdx;
+    const cx = 48 + idx * 222;
+    const cy = 92;
+    const cw = 204, ch = 335;
+
+    ctx.fillStyle = isSel ? 'rgba(30, 41, 59, 0.95)' : 'rgba(15, 23, 42, 0.75)';
+    ctx.fillRect(cx, cy, cw, ch);
+
+    ctx.strokeStyle = isSel ? h.weaponColor : '#334155';
+    ctx.lineWidth = isSel ? 4 : 2;
+    ctx.strokeRect(cx, cy, cw, ch);
+
+    if (isSel) {
+      ctx.fillStyle = h.weaponColor;
+      ctx.fillRect(cx, cy, cw, 28);
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 14px "Microsoft YaHei"';
+      ctx.fillText('▶ 1P SELECTED (按J出击)', cx + 18, cy + 19);
+    }
+
+    const px = cx + cw * 0.5;
+    const py = cy + 150;
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.beginPath(); ctx.ellipse(px, py + 5, 28, 10, 0, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = h.bodyColor;
+    ctx.fillRect(px - 20, py - 74, 40, 74);
+    ctx.fillStyle = h.vestColor;
+    ctx.fillRect(px - 20, py - 52, 40, 26);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fillRect(px + 2, py - 66, 14, 7);
+
+    ctx.strokeStyle = h.weaponColor;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(px - 28, py - 25);
+    ctx.lineTo(px + 46, py - 68);
+    ctx.stroke();
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 21px "Microsoft YaHei"';
+    ctx.fillText(h.name, cx + 14, cy + 195);
+
+    ctx.fillStyle = h.weaponColor;
+    ctx.font = 'bold 12px "Microsoft YaHei"';
+    ctx.fillText(h.elemLabel, cx + 14, cy + 216);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '12px "Microsoft YaHei"';
+    ctx.fillText(`武器: ${h.weapon}`, cx + 14, cy + 238);
+    ctx.fillText(`生命值: ${h.hp} HP | 攻倍: ${Math.round(h.dmgMult * 100)}%`, cx + 14, cy + 258);
+    ctx.fillText(`援护技: ${h.assistSkillName.slice(0, 11)}`, cx + 14, cy + 278);
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '11px "Microsoft YaHei"';
+    const words = h.traitDesc;
+    ctx.fillText(words.slice(0, 16), cx + 14, cy + 302);
+    ctx.fillText(words.slice(16, 32), cx + 14, cy + 318);
+  });
+
+  const blink = Math.floor(game.frame / 18) % 2 === 0;
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(48, 446, 864, 68);
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(48, 446, 864, 68);
+
+  const curHero = HERO_ROSTER[screenFlow.selectedHeroIdx];
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'bold 14px "Microsoft YaHei"';
+  ctx.fillText(`★ 当前选中【${curHero.name}】（其余3名蜀汉武将将自动作为战斗内 [Q键援护] 与 [Y键双人合体奥义] 搭档！）`, 62, 472);
+
+  if (blink) {
+    ctx.fillStyle = '#4ade80';
+    ctx.font = 'bold 17px "Microsoft YaHei"';
+    ctx.fillText('👉 按 [ A / D ] 左右切换武将，按 [ J ] 或 [ Space ] 确认出击！ (按 [5] 键投币 / 按 [Tab] 打开芯片改装工坊)', 62, 500);
+  }
+}
+
+function renderMetroMapScreen() {
+  ctx.fillStyle = '#050914';
+  ctx.fillRect(0, 0, 960, 540);
+
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < 960; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 540); ctx.stroke(); }
+  for (let y = 0; y < 540; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(960, y); ctx.stroke(); }
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = 'italic bold 26px "Microsoft YaHei"';
+  ctx.fillText('🚇 洛阳都会区 · 轨道交通战术推进大地图 (CYBER METRO TACTICAL MAP)', 36, 48);
+
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  METRO_STATIONS.forEach((st, i) => {
+    if (i === 0) ctx.moveTo(st.x, st.y);
+    else ctx.lineTo(st.x, st.y);
+  });
+  ctx.stroke();
+
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  for (let i = 0; i <= screenFlow.mapFromStage; i++) {
+    const st = METRO_STATIONS[i];
+    if (i === 0) ctx.moveTo(st.x, st.y);
+    else ctx.lineTo(st.x, st.y);
+  }
+  const fromSt = METRO_STATIONS[screenFlow.mapFromStage];
+  const toSt   = METRO_STATIONS[screenFlow.mapToStage];
+  const curTrainX = fromSt.x + (toSt.x - fromSt.x) * screenFlow.mapProgress;
+  const curTrainY = fromSt.y + (toSt.y - fromSt.y) * screenFlow.mapProgress;
+  ctx.lineTo(curTrainX, curTrainY);
+  ctx.stroke();
+
+  const s1 = METRO_STATIONS[1];
+  ctx.strokeStyle = careerSaveData.secretSwordFound ? '#4ade80' : '#475569';
+  ctx.setLineDash([6, 4]);
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(s1.x, s1.y);
+  ctx.lineTo(s1.x + 25, s1.y + 85);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = careerSaveData.secretSwordFound ? '#064e3b' : '#1e293b';
+  ctx.fillRect(s1.x - 50, s1.y + 85, 195, 42);
+  ctx.strokeStyle = careerSaveData.secretSwordFound ? '#4ade80' : '#64748b';
+  ctx.strokeRect(s1.x - 50, s1.y + 85, 195, 42);
+  ctx.fillStyle = careerSaveData.secretSwordFound ? '#4ade80' : '#94a3b8';
+  ctx.font = 'bold 12px "Microsoft YaHei"';
+  ctx.fillText(careerSaveData.secretSwordFound ? '🗡️ 支线已破: 古董黑客屋(青釭剑)' : '🔒 隐藏支线: 30秒火攻卷帘门', s1.x - 42, s1.y + 110);
+
+  METRO_STATIONS.forEach((st, idx) => {
+    const isPassed = idx <= screenFlow.mapFromStage;
+    const isTarget = idx === screenFlow.mapToStage;
+
+    ctx.fillStyle = isTarget ? '#ef4444' : (isPassed ? '#38bdf8' : '#334155');
+    ctx.beginPath();
+    ctx.arc(st.x, st.y, isTarget ? 16 : 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#f8fafc';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = isTarget ? '#fbbf24' : '#f8fafc';
+    ctx.font = 'bold 15px "Microsoft YaHei"';
+    ctx.fillText(st.name, st.x - 65, st.y - 26);
+    ctx.fillStyle = '#fca5a5';
+    ctx.font = '12px "Microsoft YaHei"';
+    ctx.fillText(st.boss, st.x - 65, st.y + 34);
+  });
+
+  ctx.fillStyle = '#fbbf24';
+  ctx.fillRect(curTrainX - 28, curTrainY - 18, 56, 26);
+  ctx.fillStyle = '#0f172a';
+  ctx.font = 'bold 13px "Microsoft YaHei"';
+  ctx.fillText(`🚄 ${player.hero.name.slice(3)}`, curTrainX - 22, curTrainY);
+
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+  ctx.fillRect(45, 415, 870, 102);
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(45, 415, 870, 102);
+
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = 'bold 18px "Microsoft YaHei"';
+  ctx.fillText(`📍 下一站目标：${toSt.name} —— ${toSt.boss}`, 65, 445);
+
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = '14px "Microsoft YaHei"';
+  ctx.fillText(`💡 战术破招情报：${toSt.desc}`, 65, 472);
+
+  if (Math.floor(game.frame / 15) % 2 === 0) {
+    ctx.fillStyle = '#4ade80';
+    ctx.font = 'bold 16px "Microsoft YaHei"';
+    ctx.fillText('👉 按 [ J ] / [ Space ] 或鼠标点击画面，立即突入目标战场！', 65, 502);
+  }
+}
+
+function drawStageBackground() {
+  if (campaign.stage === 1) {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, Z_MIN);
+    skyGrad.addColorStop(0, '#090514'); skyGrad.addColorStop(1, '#2e1065');
+    ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, 960, Z_MIN);
+
+    ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 2; ctx.strokeRect(50, 170, 180, 45);
+    ctx.fillStyle = '#fb7185'; ctx.font = 'bold 18px "Microsoft YaHei"'; ctx.fillText('洛阳霓虹夜市大排档', 62, 198);
+
+    const roadGrad = ctx.createLinearGradient(0, Z_MIN, 0, 540);
+    roadGrad.addColorStop(0, '#1e293b'); roadGrad.addColorStop(1, '#090d16');
+    ctx.fillStyle = roadGrad; ctx.fillRect(0, Z_MIN, 960, 540 - Z_MIN);
+
+    const door = campaign.shutterDoor;
+    ctx.fillStyle = door.breached ? '#064e3b' : '#334155';
+    ctx.fillRect(door.x - 45, Z_MIN - 115, 90, 125);
+    ctx.strokeStyle = door.breached ? '#4ade80' : '#f97316';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(door.x - 45, Z_MIN - 115, 90, 125);
+
+    ctx.fillStyle = '#fbbf24'; ctx.font = 'bold 13px "Microsoft YaHei"';
+    if (door.breached) {
+      ctx.fillStyle = '#4ade80';
+      ctx.fillText('🗡️ 密室已破: 青釭剑入手!', door.x - 75, Z_MIN - 125);
+    } else if (door.lockedForever) {
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText('🔒 卷帘门已超时焊死', door.x - 65, Z_MIN - 125);
+    } else {
+      const secLeft = Math.ceil(door.timerFrames / 60);
+      ctx.fillText(`⏱️ 密室卷帘门 [${secLeft}s] HP:${door.hp}`, door.x - 85, Z_MIN - 125);
+    }
+  }
+  else if (campaign.stage === 2) {
+    ctx.fillStyle = '#020617'; ctx.fillRect(0, 0, 960, Z_MIN);
+    ctx.fillStyle = '#38bdf8';
+    for (let i = 0; i < 6; i++) {
+      const lx = 960 - ((game.frame * 22 + i * 180) % 1080);
+      ctx.fillRect(lx, 110, 65, 8);
+      ctx.fillRect(lx, 210, 45, 5);
+    }
+    ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 15px "Microsoft YaHei"';
+    ctx.fillText(`🚄 磁悬浮列车 300km/h 疾驰中 ${campaign.brakeActiveFrames > 0 ? '🛑[急刹车左滑惯性生效中!]' : ''}`, 310, 155);
+
+    const trainGrad = ctx.createLinearGradient(0, Z_MIN, 0, 540);
+    trainGrad.addColorStop(0, '#334155'); trainGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = trainGrad; ctx.fillRect(0, Z_MIN, 960, 540 - Z_MIN);
+
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(campaign.electricGateX, Z_MIN); ctx.lineTo(campaign.electricGateX, Z_MAX); ctx.stroke();
+    ctx.fillStyle = '#7dd3fc'; ctx.font = 'bold 13px "Microsoft YaHei"';
+    ctx.fillText('⚡ 车尾高压电网(撞击短路-450HP)', 16, Z_MIN - 10);
+  }
+  else {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, Z_MIN);
+    skyGrad.addColorStop(0, game.isNGPlus ? '#1f051d' : '#050814');
+    skyGrad.addColorStop(1, game.isNGPlus ? '#3b0764' : '#1e1b4b');
+    ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, 960, Z_MIN);
+
+    ctx.strokeStyle = '#38bdf8'; ctx.strokeRect(700, 175, 200, 42);
+    ctx.fillStyle = '#38bdf8'; ctx.font = 'bold 18px "Microsoft YaHei"';
+    ctx.fillText('曹氏大厦 108F 停机坪', 715, 202);
+
+    const roadGrad = ctx.createLinearGradient(0, Z_MIN, 0, 540);
+    roadGrad.addColorStop(0, '#1e293b'); roadGrad.addColorStop(1, '#090d16');
+    ctx.fillStyle = roadGrad; ctx.fillRect(0, Z_MIN, 960, 540 - Z_MIN);
+  }
+}
+
+function drawStage2LaserBeamOverlay() {
+  const beam = campaign.laserBeam;
+  if (beam.phase === 'WARNING' && Math.floor(game.frame / 4) % 2 === 0) {
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
+    ctx.fillRect(880, Z_MIN - 90, 75, 180);
+    ctx.fillStyle = '#ef4444'; ctx.font = 'bold 16px "Microsoft YaHei"';
+    ctx.fillText('⚠️ 车顶激光横梁预警 (按[I]键挑空夏侯惇直接削他50%血量 / 按[S+K]滑铲躲避)!', 330, Z_MIN - 28);
+  } else if (beam.phase === 'SWEEPING') {
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(beam.x - 16, Z_MIN - 110, 32, 220);
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(beam.x - 5, Z_MIN - 110, 10, 220);
+  }
+}
+
+function drawMissile(ms) {
+  ctx.fillStyle = ms.reflected ? '#38bdf8' : '#f97316';
+  ctx.beginPath();
+  ctx.arc(ms.x, ms.z - 35, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fef08a';
+  ctx.font = 'bold 11px "Microsoft YaHei"';
+  ctx.fillText(ms.reflected ? '⚡反弹导弹' : '🚀导弹(可挥枪反抽)', ms.x - 32, ms.z - 48);
+}
+
+function drawMob(m) {
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath(); ctx.ellipse(m.x, m.z, 20, 8, 0, 0, Math.PI * 2); ctx.fill();
+  const my = m.z - m.y;
+
+  ctx.fillStyle = m.flashWhite > 0 ? '#fff' : (m.type === 'ARSONIST' ? '#ea580c' : (m.type === 'COMMANDO' ? '#475569' : '#eab308'));
+  ctx.fillRect(m.x - 15, my - 64, 30, 64);
+
+  ctx.fillStyle = '#1e293b'; ctx.fillRect(m.x - 24, my - 76, 48, 6);
+  ctx.fillStyle = '#ef4444'; ctx.fillRect(m.x - 24, my - 76, 48 * (m.hp / m.maxHp), 6);
+  ctx.fillStyle = '#cbd5e1'; ctx.font = '11px "Microsoft YaHei"';
+  ctx.fillText(m.name, m.x - 36, my - 82);
+}
+
+function drawProp(p) {
+  if (p.state === 'DESTROYED') return;
+  if (p.state === 'ACTIVE_HAZARD') {
+    ctx.fillStyle = p.id === 'HYDRANT' ? 'rgba(56, 189, 248, 0.30)' : 'rgba(165, 243, 252, 0.35)';
+    ctx.beginPath(); ctx.ellipse(p.x, p.z, p.radius, p.radius * 0.38, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#7dd3fc'; ctx.font = 'bold 12px "Microsoft YaHei"';
+    ctx.fillText(p.id === 'HYDRANT' ? '💦 高压导电积水区 (张角放天雷必被反噬破盾!)' : '❄️ 极寒液氮雾区', p.x - 110, p.z + 5);
+    return;
+  }
+  const blink = p.state === 'COUNTDOWN' && Math.floor(game.frame / 4) % 2 === 0;
+  ctx.fillStyle = blink ? '#fff' : (p.id === 'NITROGEN' ? '#0284c7' : p.id === 'HYDRANT' ? '#3b82f6' : '#ea580c');
+  ctx.fillRect(p.x - 18, p.z - 52, 36, 52);
+  ctx.fillStyle = '#cbd5e1'; ctx.font = '12px "Microsoft YaHei"'; ctx.fillText(p.name, p.x - 65, p.z - 58);
+}
+
+function drawPlayer() {
+  const hCfg = player.hero;
+  for (const img of player.afterimages) {
+    ctx.fillStyle = `rgba(56, 189, 248, ${img.alpha * 0.5})`;
+    ctx.fillRect(img.x - 16, img.z - img.y - 68, 32, 68);
+  }
+  const py = player.z - player.y;
+  const isLowSlide = player.state === 'SKILL' && player.activeSkill?.isLowSlide;
+  const h = isLowSlide ? 34 : 68;
+
+  if (player.isMaxMode) { ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3; ctx.strokeRect(player.x - 24, py - h - 8, 48, h + 10); }
+  ctx.fillStyle = player.state === 'HURT' ? '#ef4444' : hCfg.bodyColor; ctx.fillRect(player.x - 16, py - h, 32, h);
+  ctx.fillStyle = hCfg.vestColor; ctx.fillRect(player.x - 16, py - h + 14, 32, 20);
+  if (player.state === 'GUARD') {
+    ctx.strokeStyle = player.guardFrames <= 7 ? '#fbbf24' : '#38bdf8'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(player.x + player.facing * 18, py - 35, 38, -Math.PI * 0.4, Math.PI * 0.4); ctx.stroke();
+  }
+  ctx.strokeStyle = hCfg.weaponColor;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  const len = player.state === 'SKILL' ? (player.activeSkill?.range || 90) : 55;
+  ctx.moveTo(player.x - player.facing * 15, py - h * 0.5);
+  ctx.lineTo(player.x + player.facing * len, py - h * 0.5 - (player.activeSkill?.id === 'ZY_28A' ? 45 : 0));
+  ctx.stroke();
+}
+
+function drawBoss() {
+  if (!boss.active || boss.hp <= 0) return;
+  const by = boss.z - boss.y;
+
+  if (boss.state === 'WINDUP' || boss.state === 'VULNERABLE' || boss.state === 'FROZEN') {
+    ctx.strokeStyle = boss.state === 'WINDUP' ? '#ef4444' : (boss.state === 'FROZEN' ? '#38bdf8' : '#fbbf24');
+    ctx.lineWidth = 3;
+    ctx.strokeRect(boss.x - 42, by - 98, 84, 98);
+    ctx.fillStyle = boss.state === 'WINDUP' ? '#fca5a5' : '#fde047';
+    ctx.font = 'bold 13px "Microsoft YaHei"';
+    ctx.fillText(
+      boss.state === 'WINDUP' ? `⚠️ ${boss.currentMove?.name}` : (boss.state === 'FROZEN' ? '❄️ 极寒冰封破绽!' : '🎯 收招破绽(按[I]可挑空撞激光)!'),
+      boss.x - 105, by - 106
+    );
+  }
+
+  if (boss.bossType === 'ZHANG_JIAO') {
+    ctx.strokeStyle = boss.isWet ? '#38bdf8' : '#4ade80';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(boss.x, by - 55, 42, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.fillStyle = boss.flashWhite > 0 ? '#ffffff' : '#ca8a04';
+    ctx.fillRect(boss.x - 22, by - 84, 44, 84);
+    ctx.fillStyle = '#166534';
+    ctx.fillRect(boss.x - 18, by - 62, 36, 32);
+
+    ctx.strokeStyle = '#fde047'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(boss.x + boss.facing * 20, by - 85); ctx.lineTo(boss.x + boss.facing * 20, by - 10); ctx.stroke();
+  }
+  else if (boss.bossType === 'XIAHOU_DUN') {
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath(); ctx.arc(boss.x - 28, by - 14, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(boss.x + 28, by - 14, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(boss.x - 28, by - 14, 15, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(boss.x + 28, by - 14, 15, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.fillStyle = boss.flashWhite > 0 ? '#ffffff' : '#1d4ed8';
+    ctx.fillRect(boss.x - 36, by - 42, 72, 26);
+    ctx.fillStyle = boss.flashWhite > 0 ? '#ffffff' : '#1e293b';
+    ctx.fillRect(boss.x - 20, by - 86, 40, 48);
+
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(boss.x + (boss.facing === 1 ? 2 : -16), by - 78, 14, 6);
+
+    ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(boss.x - boss.facing * 15, by - 50);
+    ctx.lineTo(boss.x + boss.facing * 80, by - 60);
+    ctx.stroke();
+  }
+  else {
+    if (game.isNGPlus) {
+      ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 3; ctx.strokeRect(boss.x - 34, by - 96, 68, 96);
+    }
+    ctx.fillStyle = boss.flashWhite > 0 ? '#ffffff' : (game.isNGPlus ? '#581c87' : (boss.phase === 3 ? '#991b1b' : '#334155'));
+    ctx.fillRect(boss.x - 28, by - 90, 56, 90);
+    ctx.strokeStyle = game.isNGPlus ? '#f43f5e' : (boss.phase === 3 ? '#f97316' : '#e2e8f0');
+    ctx.lineWidth = 6; ctx.beginPath();
+    const hLen = boss.state === 'ACTIVE' ? boss.currentMove.range : 75;
+    ctx.moveTo(boss.x - boss.facing * 20, by - 45); ctx.lineTo(boss.x + boss.facing * hLen, by - 45); ctx.stroke();
+  }
+}
+
+function drawHUD() {
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)'; ctx.fillRect(16, 14, 345, 92);
+  ctx.strokeStyle = player.hero.weaponColor; ctx.lineWidth = 2; ctx.strokeRect(16, 14, 345, 92);
+
+  const nextPartner = assistSystem.getNextPartnerHero();
+  const assistReady = assistSystem.cooldown <= 0;
+  const coopReady = player.rage >= 200;
+
+  ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 12px "Microsoft YaHei"';
+  ctx.fillText(`${player.hero.name} | 🪙币:${screenFlow.credits} | [Q]援护:${nextPartner.name.slice(3)} ${assistReady ? '✅就绪' : Math.ceil(assistSystem.cooldown/60)+'s'}`, 26, 33);
+
+  ctx.fillStyle = '#22c55e'; ctx.fillRect(28, 42, 315 * (player.hp / player.maxHp), 13);
+  for (let i = 0; i < 4; i++) {
+    const fill = Math.max(0, Math.min(1, (player.rage - i * 100) / 100));
+    ctx.fillStyle = fill >= 1 ? '#fbbf24' : '#38bdf8';
+    ctx.fillRect(28 + i * 79, 61, 75 * fill, 9);
+  }
+  const curArt = player.artifacts[player.activeArtifactIdx];
+  ctx.fillStyle = coopReady ? '#fbbf24' : curArt.color;
+  ctx.fillText(coopReady ? `🔥 [按Y键] 释放双人合体奥义 (${player.hero.name.slice(3)}×${nextPartner.name.slice(3)})!` : `法宝[O/P]: ${curArt.name} (${curArt.charges})`, 28, 92);
+
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.85)'; ctx.fillRect(375, 14, 360, 74);
+  ctx.strokeStyle = boss.active ? '#eab308' : '#38bdf8'; ctx.strokeRect(375, 14, 360, 74);
+  ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 12px "Microsoft YaHei"';
+
+  if (boss.active) {
+    const elemTag = boss.bossType === 'ZHANG_JIAO' ? '木盾弱雷' : (boss.bossType === 'XIAHOU_DUN' ? '挑空撞激光削50%血' : '金甲弱火');
+    ctx.fillStyle = '#fde047';
+    ctx.fillText(`${boss.name} [${elemTag}]`, 385, 34);
+    ctx.fillStyle = boss.bossType === 'ZHANG_JIAO' ? '#eab308' : (boss.bossType === 'XIAHOU_DUN' ? '#3b82f6' : '#ef4444');
+    ctx.fillRect(387, 43, 336 * (boss.hp / boss.maxHp), 14);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(387, 63, 336 * (boss.shield / boss.maxShield), 10);
+  } else {
+    ctx.fillText(`${campaign.stageTitle} | ⏱️${formatFramesToTime(game.runTimerFrames)}`, 387, 34);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = '13px "Microsoft YaHei"';
+    ctx.fillText(`当前波次: Wave ${campaign.wave}/${campaign.maxWaves} | 剩余敌军: ${mobs.length} 名`, 387, 56);
+    ctx.fillStyle = '#38bdf8'; ctx.font = '12px "Microsoft YaHei"';
+    ctx.fillText(campaign.stage === 1 ? '💡提示: 站在右侧卷帘门前按[Q]叫关羽火刀或按[Y]合体技可直接破门!' : '💡提示: 清完2波特种兵迎战【机车夏侯惇】(按F9秒清)!', 385, 76);
+  }
+
+  const tier = styleSystem.getTier();
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)'; ctx.fillRect(750, 14, 194, 88);
+  ctx.strokeStyle = tier.color; ctx.strokeRect(750, 14, 194, 88);
+  ctx.fillStyle = tier.color; ctx.font = 'italic bold 38px Impact'; ctx.fillText(tier.rank, 764, 62);
+  ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 14px "Microsoft YaHei"';
+  ctx.fillText(`${styleSystem.combo} HITS (最高:${careerSaveData.bestCombo})`, 835, 42);
+  ctx.font = '11px "Microsoft YaHei"'; ctx.fillText(`最快通关: ${formatFramesToTime(careerSaveData.fastestClearFrames)}`, 835, 62);
+  ctx.fillText(tier.title, 764, 84);
+}
+
+loadGameFromLocalStorage();
+
+function gameLoop() { updateGame(); renderGame(); requestAnimationFrame(gameLoop); }
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
